@@ -1,0 +1,705 @@
+﻿
+
+重置练习环境：
+rht-vmctl  reset  classroom
+rht-vmctl  reset  server
+rht-vmctl  reset  desktop
+
+
+RHCE 核心考点列表
+####################################################
+
+一、安全策略配置 ——
+1. 配置SELinux
+SELinux，Security-Enhanced Linux
+美国NSA国家安全局提供的一套基于内核的增强的强制安全保护机制
+主要针对用户、进程、文档做了一些安全标签及相关限制
+
+安全策略谁来提供：NSA、RedHat
+如何查看安全标签：ls  -Z、ps  -Z、……
+
+如何让SELinux生效：
+# vim  /etc/selinux/config
+SELINUX=enforcing 
+
+SELinux的类型 ——
+enforcing  强制
+permissive  宽松
+disabled  禁用
+
+查看/切换SELinux的状态 ——
+getenforce 
+setenforce  1|0
+
+2. 配置SSH访问（+防火墙）
+SSH，Secure  SHell，为远程客户机提供一个安全的命令行环境
+服务端：sshd
+客户端：ssh、xshell、SecureCRT、Putty
+SSH的访问控制：
+    防火墙规则 —— （后续）
+    用户ACL —— # vim  /etc/ssh/sshd_config
+	AllowUsers  用户名@客户机地址 .. ..
+	DenyUsers  用户名@客户机地址 .. ..
+
+3. 自定义用户环境（别名设置）
+命令别名：为一个复杂的命令行建立一个简短的命令字
+如何定义别名：alias  别名='复杂的命令行'
+如何查看别名：alias、alias  别名
+如何取消别名：unalias  别名、unalias  -a
+
+用户初始化文件：
+    /etc/bashrc、~/.bashrc、/etc/profile、~/.bash_profile
+
+4.  配置防火墙端口转发
+
+netfilter：Linux内核集成的一种基于包过滤的自主保护机制
+主要针对网络访问实现访问控制
+系统服务：iptables --》firewalld
+管理工具：iptables --》firewall-cmd、firewall-config
+防火墙预设的区域：
+block：阻止所有数据包
+drop：丢弃所有数据包
+public：公共区域，允许SSH等极个别服务，默认区域
+trusted：信任区域，允许任何访问
+work：办公区域，允许SSH、Samba少数几个服务
+
+防火墙预设的服务：http、https、dns……
+
+查看/修改默认区域：
+firewall-cmd  --get-default-zone
+firewall-cmd  --set-default-zone=trusted
+
+防火墙规则的作用范围：
+运行配置 —— 当前有效，重启firewalld服务后失效
+永久配置 —— 当前无效，重启firewalld服务后有效
+--permanent
+
+如何设置具体的防火墙规则：
+firewall-cmd  --add-service=服务名  --zone=区域名
+firewall-cmd  --add-source=源地址  --zone=区域名
+
+firewall-config图形配置 ——
+修改默认区域、修改永久配置、添加规则、添加转发规则
+
+端口转发（5423-->80） ——
+从客户机访问 http://server0:5423 时，与访问 http://server0/ 等效
+
+firewall-cmd --permanent  --add-forward-port=port=源端口:proto=tcp:toport=目标端口 
+
+
+
+二、网络连接配置 ——
+5. 配置链路聚合
+聚合连接（team）：网络连接的捆绑、组团（多个网卡组成一个连接）
+成员网卡（team-slave）：构建聚合连接的实际网卡设备
+聚合连接的类型 ——
+    热备份 activebackup
+    轮询负载均衡 roundrobin
+定义聚合连接的类型时，采用JSON语法标记 ——
+    JavaScript Object Notation
+    标记一个对象 —— { 对象 }
+    每一个对象 —— 名称:值
+    每一个字符串 —— "字符串"
+热备份配置：  { "runner":{ "name":"activebackup" }  }
+轮询配置：    { "runner":{ "name":"roundrobin" }  }
+
+建立聚合连接的思路 ——
+1）创建新的聚合连接（聚合类型）
+# nmcli  con  add  con-name  team0  type  team  ifname team0  config  '{ "runner":{ "name":"activebackup" }  }'
+2）为聚合连接指定成员网卡
+# nmcli  con  add  con-name  team0-p1  type  team-slave ifname  eno1  master  team0
+# nmcli  con  add  con-name  team0-p2  type  team-slave ifname  eno2  master  team0
+3）为聚合连接配置IP地址
+# nmcli  con  modify  team0  ipv4.method  manual ipv4.addresses  "172.16.3.20/24"
+4）激活聚合连接（及成员网卡）
+# nmcli  con  up  team0
+# nmcli  con  up  team0-p1
+# nmcli  con  up  team0-p2
+5）确认状态
+# teamdctl  team0  state
+
+
+6. 配置IPv6地址
+
+系统服务：network --》NetworkManager
+nmcli 命令行工具
+nm-connection-editor 图形配置工具
+
+连接名称 —— 逻辑上软件定义的一个名称
+接口名称 —— 物理上硬件设备的一个名称
+
+确认网卡的连接名称：
+nmcli  conn  show
+或者
+nmcli device status
+
+如何表示一个IP地址：
+IPv4地址（32位） —— 点 分隔 十进制，172.25.0.11
+IPv6地址（128位）—— 冒号 分隔 十六进制，fe80::5054:ff:fe00:b
+fe80:0:0:0:5054:ff:fe00:b
+fe80::5054:ff:fe00:b
+
+system1和system2的IPv4地址，默认为DHCP获取
+
+
+三、配置邮件服务器 ——
+7. 配置本地邮件服务
+用途：为邮箱用户向外发送邮件、存储及投递邮件
+    zhsan@example.com
+
+邮件服务器的类型 ——
+    普通邮件服务器：向外发送邮件、存储及投递邮件
+    空客户端邮件服务器：向外发送邮件，不存储不投递邮件
+
+邮箱用户 ---> 普通邮件服务器 
+
+邮箱用户 ---> 空客户端邮件服务器 ---> 后端邮件服务器
+
+
+软件包：postfix
+系统服务：postfix
+配置文件：/etc/postfix/main.cf
+
+nullclient
+
+考试环境：
+     system1（空客户端） ---》考官的后端邮件服务器
+     system2（空客户端） ---》考官的后端邮件服务器
+
+练习环境：
+    server0（空客户端）
+    desktop0（后端邮件服务器）
+
+测试方法：
+    在server0，发一封邮件给本机的student用户
+echo  '邮件正文'  |  mail  -s  邮件标题  收件人地址
+
+    在desktop0上的student用户能收到这封邮件
+mail  -u  用户名
+
+
+
+四、配置文件服务器/客户端 
+
+8. 通过Samba发布共享目录
+用途：为客户机提供共享文件夹、共享打印机资源
+软件包（S）：samba
+软件包（C）：samba-client、cifs-utils
+协议和端口：
+    CIFS，Common Internet File System，通用网际文件系统 —— TCP 445
+    SMB，Server Message Block，服务消息块 —— TCP 139
+系统服务：smb
+用途：提供共享文件夹
+协议：SMB（TCP 139）、CIFS（TCP 445）
+软件包（S）：samba
+软件包（C）：samba-client、cifs-utils
+系统服务：smb
+配置文件 /etc/samba/smb.conf： 【man  smb.conf】
+[global]
+      共享服务器的全局设置。。。
+      workgroup  =  工作组名
+[homes]
+      本地用户家目录的隐藏共享。。。
+      browseable = no
+[printers]
+      打印机共享设置
+[共享名]
+     配置语句 =  值
+     path  =  文件夹路径
+     comment = 说明文字
+     browseable = yes|no
+     public = no|yes
+     read only = yes|no
+     valid  users =  用户1  用户2  .. ..
+     write list = 用户1  用户2
+     hosts  allow  =  客户机1  网段1  .. ..
+     hosts  deny  =  客户机1  网段1  .. ..
+
+系统账号：/etc/passwd记录的用户账号
+共享账号：存放在独立的账号数据库文件里的用户账号，必须有同名的系统账号（方便给权限）
+pdbedit  -a  用户名
+pdbedit  -L  [用户名]
+pdbedit  -x  用户名
+smbpasswd  用户名
+
+
+SELinux预设策略的开关控制（布尔值）：
+getsebool  -a  | grep  samba_ex
+setsebool  -P  samba_export_all_rw=on
+
+测试Samba共享资源：
+smbclient  -L  服务器地址 	【密码为空（直接回车）】
+smbclient  -U  用户名  //服务器地址/共享名 【需要密码】
+
+
+9. 配置多用户Samba挂载
+客户端multiuser挂载技术 ——
+multiuser含义：在客户端支持切换Samba用户名，但不需要重新挂载共享资源
+
+# vim  /etc/fstab
+.. ..
+被挂载的设备    挂载点   文件系统类型   挂载参数  0  0
+//172.25.0.11/devops    /mnt/dev        cifs    username=kenji,password=atenorth,multiuser,sec=ntlmssp,_netdev 0 0
+
+# su - chihiro
+# cifscreds  add  server0
+Password: 共享账号chihiro的密码
+# touch  /mnt/dev/a.txt
+
+
+
+10. 配置NFS共享服务
+
+用途：Network File System 提供共享文件夹
+软件包（S）：nfs-utils
+软件包（C）：nfs-utils
+共享配置文件：/etc/exports
+文件夹路径	客户机1(权限,ro)  客户机2(rw)....
+
+重新读取配置：exportfs  -rv
+
+
+配置普通NFS共享（只支持客户机访问控制） ——
+系统服务（S）：nfs-server
+系统服务（C）：--
+# vim  /etc/exports
+/public         172.25.0.0/24(ro)
+
+
+配置安全NFS共享（增加了对用户验证和加密的支持）：
+系统服务（S）：nfs-secure-server
+系统服务（C）：nfs-secure
+
+# vim  /etc/exports
+/protected      *(rw,sec=krb5p)
+
+Kerberos认证/加密：一次认证（获取通行证），多次免密登录
+客户机密钥部署位置：/etc/krb5.keytab
+
+测试用户：ldapuser0、ldapuser1
+密码：kerberos
+
+
+
+11. 挂载NFS共享
+
+列出有哪些NFS共享：
+showmount  -e  [服务器地址]
+
+如何访问NFS共享目录：
+mount   服务器地址:文件夹路径   本地挂载点
+
+
+# vim  /etc/fstab
+172.25.0.11:/protected	/mnt/nfssecure	nfs sec=krb5p,_netdev 0 0
+
+
+19. 配置iSCSI服务端
+20. 配置iSCSI客户端
+
+iSCSI，网络磁盘		千兆以太网
+软件包（S）：targetcli
+软件包（C）：iscsi-initiator-utils
+
+后端存储 backstore：
+    服务端实际提供的存储设备（磁盘、分区、文件.. ..）
+ISCSI 存储对象：
+    软件逻辑上定义的一个网络磁盘target
+LUN 逻辑单元：
+    软件逻辑上定义的到后端存储的一个映射
+IQN名称（ISCSI Qualified Name）：
+     iqn.yyyy-mm.反序区域名:自定义标记
+
+如何发布一个ISCSI磁盘 ——
+1. 定义一个后端存储设备
+2. 创建一个ISCSI对象（IQN名称）
+        iqn.2016-02.com.example:server0
+3. 为ISCSI对象添加LUN对应到后端存储 【luns】
+4. 为ISCSI对象指定允许访问的客户机标识（IQN名称） 【acls】
+        iqn.2016-02.com.example:desktop0
+5. 为ISCSI对象指定监听的地址、端口 【portals】
+
+如何访问一个ISCSI磁盘 ——
+1. 准备工作（初始化、引爆）
+1）为客户机标识IQN名称
+    # vim  /etc/iscsi/initiatorname.iscsi
+    InitiatorName=本机的IQN名称
+    # systemct  restart  iscsi
+2）查找ISCSI磁盘
+    iscsiadm  -m  discovery  -t  st  -p  服务器地址
+3）连接ISCSI磁盘
+    iscsiadm  -m  node  -T  ISCSI磁盘的IQN名称  -l
+			【-l、-u、-o  delete】
+2. 使用磁盘
+识别、分区、格式化、挂载
+
+
+iSCSI磁盘的开机自动连接：
+# vim  /var/lib/iscsi/nodes/..../default
+//查找startup
+node.conn[0].startup = automatic
+
+# systemctl  enable  iscsi   iscsid
+
+
+问题（当前版bug）：iSCSI客户机配好之后，重启或关机会卡死
+解决：sync ;  poweroff  -f
+
+# vim  /etc/bashrc
+.. ..
+alias  reboot='sync ; reboot -f'
+
+
+
+
+五、配置网站服务器 ——
+12.实现一个web服务器
+
+用途：基于B/S架构提供网页的服务端程序
+应用层协议：HTTP（TCP 80）
+软件包（S）：httpd
+软件包（B）：firefox、IE、elinks
+快速构建一个网站服务器 ——
+# yum  -y  install  httpd
+# systemctl  restart  httpd
+
+如何访问一个网站（URL） ——
+Uniform  Resource  Locator，网址
+http://www.baidu.com/
+http://music.baidu.com/mp3/huluwa.mp3
+协议名://服务器地址:端口/目录路径/文件
+
+服务器默认网页从哪来 ——
+网页根目录： /var/www/html/
+
+配置文件：/etc/httpd/conf/httpd.conf	【Include】
+                 /etc/httpd/conf.d/*.conf
+
+默认首页：index.html
+
+
+
+虚拟Web主机 ——
+含义：在一台httpd服务器上提供多个不同的站点
+基于域名的虚拟主机：
+http://www.tedu.cn
+http://www.tmooc.cn
+http://tts8.tedu.cn
+
+基于端口
+基于IP地址
+
+获取httpd配置手册：
+# yum  -y  install  httpd-manual
+# systemctl  restart  httpd
+# firefox  http://server0/manual/
+
+<VirtualHost  *:80>
+      ServerName   www0.example.com
+      DocumentRoot  /var/www/virtual
+</VirtualHost>
+
+一旦启用虚拟Web主机以后 ——
+1. 全局配置当中的DocumentRoot和ServerName会被忽略
+2. 如果客户机请求的URL不属于任何一个已知的虚拟站点，那么使用第一个虚拟站点做回应
+
+
+恢复目录正常的SELinux属性：
+# restorecon -R /var/www/html/
+
+13.配置安全web服务
+HTTP：明文的
+HTTPS：加密的，TLS/SSL
+
+CA：第三方的证书颁发机构（数字证书中心）
+
+实现HTTPS加密通信需要的素材：
+服务器的电子证书（cert）：服务器基本信息、颁发机构、有效期、加密用的公钥 ……、颁发机构的签名
+     /etc/pki/tls/certs/server0.crt
+服务器私钥（key）：用来解密，包括服务器的信息、解密素材
+     /etc/pki/tls/private/server0.key
+根证书（CA）：第三方机构的证书
+     /etc/pki/tls/certs/example-ca.crt
+
+14.配置虚拟主机
+
+15.配置web内容的访问
+访问控制（目录）
+<Directory  目录路径>
+    Require  ip  IP地址.. ..
+</Directory>
+
+
+16.实现动态WEB内容
+
+静态网页：.html，服务端的文件是固定的，客户端显示的结果也是固定的
+动态网页：.php、.wsgi、.jsp，服务端的文件是固定的，但是客户端显示的结果是动态变化的
+
+
+如何支持PHP网页 ——
+# yum  -y  install  php  httpd
+# systemctl  restart  httpd
+
+如何支持Python网页 ——
+# yum  -y  install  mod_wsgi
+# vim  .....conf
+WSGIScriptAlias    /    /实际WSGI程序的存放路径
+# systemctl  restart  httpd
+
+当httpd需要使用非标准端口的时候，会受到SELinux限制
+
+semanage  port  -l  |  grep  http
+semanage  port  -a  -t  http_port_t  -p  tcp  8909
+
+SELinux排错：
+1. less  /var/log/messages
+2. sealert
+
+Web服务可能受SELinux限制的几个地方：
+1. 不要先get到/root目录，然后再mv到网页目录
+    wget  URL  -O  /网页目录
+2. 万一 ，题目要求的网站目录不在/var/www下
+    !! 注意在httpd配置中添加目录权限
+<Directory /webroot>
+    Require all granted
+</Directory>
+ 
+    !! 标准网页目录有哪些：/var/www/.. ..、/src/*/www*、.. ..
+    !! 如何将非标准的目录作为网页目录
+    1）修改目录的安全属性
+    # chcon  -R  /webroot  --reference=/var/www
+    2）修改系统的SELinux策略，将指定的目录添加为标准目录
+    # semanage  fcontext  -a  -t httpd_sys_content_t  '/webroot(/.*)?'
+    # restorecon   -R   /webroot
+
+
+六、Shell脚本编程 —— 
+17. 创建一个脚本
+Shell脚本：能够完成特定任务的一批命令行的集合
+
+设计脚本需要考虑：
+1. 每一个步骤的操作怎么实现
+2. 这些步骤的顺序
+3. 代码的优化（简化、免交互、执行效率、界面友好度）
+     变量（不变的名称调用变化的值） 
+     流程控制（if、for、while、case）
+
+任务示例：
+1. 添加一个可登录的用户 zhsan
+    useradd  zhsan
+    passwd  zhsan
+2. 报告系统信息的脚本
+    红帽版本、CPU信息、内存信息
+    cat  /etc/redhat-release
+    cat  /proc/cpuinfo ...
+    cat  /proc/meminfo ...
+
+变量的使用 ——
+变量名=变量值
+${变量名}
+
+环境变量（定制用户环境参数）：USER、PATH、HOME、PWD、SHELL、LOGNAME、……
+位置变量（提供命令行参数）：$1、$2、……、${10}、……
+预定义变量：$#、$*、$?、$0
+
+
+条件测试操作 ——
+依据 $?：表示前一条命令退出的状态值（0 成功，非0 失败）
+
+测试的方式：
+    任何一条命令行
+    test  测试表达式
+    [  测试表达式  ]
+
+常见的测试选项：
+    文件状态检测  -f、-d、-e、-r、-w、-x
+    整数值比较  -gt、-ge、-eq、-ne、-lt、-le
+    字符串比较  ==、!=
+    取反操作  !
+
+
+命令组合：
+cmd1   &&  cmd2  ||  cmd3
+
+
+
+
+重定向输出 ——
+1 标准输出（/dev/stdout）：命令行执行成功的显示信息
+2 标准错误（/dev/stderr）：命令行执行出错的显示信息
+
+重定向标准输出：
+     命令行  >  文件、命令行  >>  文件、
+重定向标准错误：
+     命令行  2>  文件、命令行  2>>  文件、
+混合重定向：
+     命令行  &>  文件
+将标准输出变成标准错误：
+     命令行  >&2
+将标准错误变成标准输出：
+     命令行  2>&1
+
+
+单分支if选择结构 ——
+if  条件测试操作 
+then
+     命令序列....
+fi
+
+
+双分支if选择结构 ——
+if  条件测试操作 
+then
+     命令序列1....
+else
+     命令序列2....
+fi
+
+
+三分支if选择结构 ——
+if  条件测试操作1
+then
+     命令序列1....
+elif  条件测试操作2
+then
+     命令序列2....
+else
+     命令序列3....
+fi
+
+根据一个变量的值等于不同结果做不同处理（红绿灯）
+case分支结构 ——
+
+case  "$变量名"   in
+值1)
+     命令序列1.. ..
+     ;;
+值2)
+     命令序列2.. ..
+     ;;
+.. ..
+*)
+     默认命令序列
+esac
+
+
+18. 创建一个添加用户的脚本
+
+脚本的退出状态值 ——
+      退出之前最后一条命令的 $? 值
+      exit  整数值
+
+列表式for循环 ——  		买票、采血车
+for  变量名  in  值1  值2  值3 .. ..
+do
+        命令序列（$变量名）
+done
+
+for  第一个献血人  in  张三  李四  王五 .. ..
+do
+        为第一个献血人采血
+done
+
+
+命令替换（提取命令结果） ——
+$(命令行)
+
+for  用户名  in  $(cat  $1)
+do
+	添加用户账号
+done
+
+
+
+
+七、配置及管理数据库 ——
+21. 配置一个数据库
+22. 数据库查询（填空）
+
+数据表：存放关系型的一些记录（很多属性）
+	一个实体：每一行（记录）、不同列（属性）
+数据库：存放存在相互关系的大量的数据表
+数据库系统（服务器）：提供数据库存储和相关管理的一套软件
+
+
+常见的数据库系统软件：
+    甲骨文：Oracle、MySQL
+    MicroSoft：SQL Server
+    DB2、PostgreSQL
+    MariaDB：mariadb-server、mariadb
+
+SQL：结构化查询语言
+
+
+阿里巴巴：去IOE运动（IBM、Oracle、EMC）
+
+如何访问数据库系统 ——
+mysql  
+mysql  -u  用户名  -p
+mysql  -u  用户名  -h  服务器 -p
+
+数据库操作语句的特点：
+1） 不区分大小写
+2.）每一条语句需要以 ; 表示结束
+    
+数据库操作 ——
+查看库：SHOW  DATABASES;
+创建库：CREATE  DATABASE  数据库名;
+删除库：DROP  DATABASE  数据库名;
+选择库：USE  数据库名;
+
+数据表操作 ——
+查看表：SHOW  TABLES;
+创建表：CREATE  TABLE  表名(字段1 类型(长度), 字段2 类型(长度), .. .. );
+删除表：DROP  TABLE  表名;
+描述表（查看表字段）：DESCRIBE  表名;
+
+数据库的导入、导出 ——
+mysqldump  -u 用户名  -p  数据库名  >  备份.sql
+mysql  -u  root  数据库名  < 备份.sql
+
+数据库用户的授权 ——
+GRANT  权限列表  ON  数据库名.表名  TO  用户名@客户机地址  IDENTIFIED BY  '密码字串';
+GRANT  select ON  Contacts.*  TO  Raikon@localhost  IDENTIFIED BY 'atenorth';
+
+修改数据库用户的密码 ——
+mysqladmin  -u  用户名  -p  password  '新密码'
+
+
+数据记录的增删改查 ——
+查询：SELECT  *  FROM  [数据库.]表名;
+          SELECT  字段1,字段2,....  FROM  [数据库.]表名;
+          SELECT  .. ..   WHERE  字段1='值'  and|or  字段2='值';
+增加：INSERT  INTO  [数据库.]表名  VALUES(1,"Tom","123");
+删除：DELETE  FROM  [数据库.]表名 WHERE .. ..;
+修改：UPDATE [数据库.]表名 SET  字段名=""  WHERE .. ..;
+
+统计查询结果的数量 ——
+SELECT  count(*)  .. ..
+
+删除空密码账号（!!注意：设好root密码后再做） ——
+DELETE FROM mysql.user WHERE Password='';
+
+
+多表查询 ——
+select count(*) from base,location where base.name="Barbara" and location.city="Sunnyvale" and base.id=location.id;
+
+
+
+建表练习 ——
+MariaDB [Contacts]> CREATE TABLE base(id int, name varchar(20), password varchar(24));
+MariaDB [Contacts]> INSERT INTO base VALUES(1,'Tom','123');
+MariaDB [Contacts]> INSERT INTO base VALUES(2,'Barbara','456');
+MariaDB [Contacts]> INSERT INTO base VALUES(3,'James','solicitous');
+MariaDB [Contacts]> INSERT INTO base VALUES(4,'Smith','tarena');
+MariaDB [Contacts]> INSERT INTO base VALUES(5,'Barbara','pwd123');
+
+MariaDB [Contacts]> CREATE TABLE location(id int, city varchar(20));
+MariaDB [Contacts]> INSERT INTO location VALUES(1,'Beijing');
+MariaDB [Contacts]> INSERT INTO location VALUES(2,'Paris');
+MariaDB [Contacts]> INSERT INTO location VALUES(3,'Sunnyvale');
+MariaDB [Contacts]> INSERT INTO location VALUES(4,'Berlin');
+MariaDB [Contacts]> INSERT INTO location VALUES(5,'Sunnyvale');
+
+
+####################################################

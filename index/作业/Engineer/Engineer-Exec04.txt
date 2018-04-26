@@ -1,0 +1,147 @@
+案例1:为虚拟机 server 配置以下静态地址参数
+– 主机名:server0.example.com
+– IP地址:172.25.0.11
+– 子网掩码:255.255.255.0
+– 默认网关:172.25.0.254
+– DNS服务器:172.25.254.254
+[root@server0 ~]# nmcli connection modify 'System eth0' ipv4.method manual ipv4.addresses '172.25.0.11/24 172.25.0.254' connection.autoconnect yes
+[root@server0 ~]# echo nameserver 172.25.254.254 > /etc/resolv.conf 
+[root@server0 ~]# ifconfig | head -2
+eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 172.25.0.11  netmask 255.255.255.0  broadcast 172.25.0.255
+[root@server0 ~]# nslookup server0.example.com
+Server:		172.25.254.254
+Address:	172.25.254.254#53
+
+Name:	server0.example.com
+Address: 172.25.0.11
+
+
+
+案例2:虚拟机 server0上操作
+        新建用户 alex，其用户ID为3456，密码是flectrag 
+[root@server0 ~]# useradd -u 3456 alex
+[root@server0 ~]# id alex
+uid=3456(alex) gid=3456(alex) 组=3456(alex)
+[root@server0 ~]# echo flectrag | passwd --stdin alex
+更改用户 alex 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+	创建下列用户、组以及组的成员关系： 
+	 – 一个名为 adminuser 的组 
+[root@server0 ~]# groupadd adminuser
+
+	 – 一个名为 natasha 的用户，其属于 adminuser 组， 这个组是该用户的从属组 
+[root@server0 ~]# useradd -G adminuser natasha
+[root@server0 ~]# id natasha
+uid=3457(natasha) gid=3458(natasha) 组=3458(natasha),3457(adminuser)
+
+	 – 一个名为 harry 的用户，其属于 adminuser 组，这个 组是该用户的从属组 
+[root@server0 ~]# useradd -G adminuser harry
+[root@server0 ~]# id harry
+uid=1002(harry) gid=1003(harry) 组=1003(harry),1001(adminuser)
+
+	 – 一个名为 sarah 的用户，其在系统中没有可交互的 Shell（/sbin/nologin），并且不是 adminuser 组的成员 
+[root@server0 ~]# useradd -s /sbin/nologin sarah
+[root@server0 ~]# grep sarah /etc/passwd
+sarah:x:1003:1004::/home/sarah:/sbin/nologin
+
+	 – natasha 、harry、sarah 的密码都要设置为 redhat
+[root@server0 ~]# echo redhat | passwd --stdin natasha 
+[root@server0 ~]# echo redhat | passwd --stdin harry 
+[root@server0 ~]# echo redhat | passwd --stdin sarah 
+
+
+
+案例3:虚拟机 server0上操作,tar制作/释放归档压缩包（zcf、ztf、zxf、jcf、jtf、jxf、cf、tf）
+    1）备份/boot、/home这两个文件夹，保存为boothome.tar.gz文件
+[root@server0 ~]# tar -zPcf boothome.tar.gz /boot/ /home/
+[root@server0 ~]# ls
+anaconda-ks.cfg  Desktop    Downloads  Pictures  Templates
+boothome.tar.gz  Documents  Music      Public    Videos
+
+    2）查看boothome.tar.gz文件内包含哪些内容 
+[root@server0 ~]# tar -tf boothome.tar.gz 
+
+    3）将boothome.tar.gz释放到文件夹/root/boothome/下
+[root@server0 /]# tar -xf /root/boothome.tar.gz -C /root/boothome
+
+    4）创建一个名为 /root/backup.tar.bz2 的归档文件，其中包含 /usr/local 目录中的内容
+[root@server0 /]# tar -jPcf /root/backup.tar.bz2 /usr/local
+
+z'j'J gz'bz2'xz
+
+案例4:在在 server0、desktop0 上操作
+– 将防火墙默认区域设置为trusted
+
+[root@server0 /]# firewall-cmd --set-default-zone=trusted 
+success
+[root@server0 /]# firewall-cmd --get-default-zone 
+trusted
+[root@desktop0 ~]# firewall-cmd --set-default-zone=trusted 
+success
+
+
+
+案例5:配置Samba文件夹共享，防火墙默认区域设置为trusted，修改SElinux状态为Enforcing
+[root@server0 ~]# firewall-cmd --set-default-zone=trusted 
+[root@server0 ~]# setenforce 1
+
+[root@desktop0 ~]# firewall-cmd --set-default-zone=trusted 
+[root@desktop0 ~]# setenforce 1
+
+在 server0 上发布共享文件夹
+[root@server0 ~]# mkdir /devops
+[root@server0 ~]# yum -y install samba
+
+
+ 1）此服务器必须是 STAFF 工作组的一个成员 
+[root@server0 ~]# vim /etc/samba/smb.conf 
+  workgroup = STAFF
+
+ 2）发布目录 /devops，共享名为 devops 
+        [devops]
+        path = /devops
+[root@server0 ~]# systemctl restart smb
+[root@server0 ~]# systemctl enable smb
+[root@server0 ~]# setsebool samba_export_all_ro on
+
+ 5）用户 harry 对共享 devops可读可写，密码是 123
+[root@server0 ~]# setfacl -m u:harry:rwx /devops/
+[root@server0 ~]# pdbedit -a harry 
+[root@server0 ~]# setsebool samba_export_all_rw on
+
+
+
+
+
+
+
+在 desktop0 上访问共享文件夹
+[root@desktop0 ~]# yum -y install samba-client
+[root@desktop0 ~]# yum -y install cifs-utils.x86_64 
+
+ 1）访问 server0 上发布共享文件夹,实现开机自动挂载到/mnt/smb
+[root@desktop0 ~]# smbclient -L 172.25.0.11
+[root@desktop0 ~]# mkdir /mnt/smb
+[root@desktop0 ~]# vim /etc/fstab 
+       //172.25.0.11/devops /mnt/smb cifs defaults,user=harry,pass=123,_netdev 0 0
+
+
+ 2）实现对/mnt/smb目录可以读和写
+
+
+
+案例6：普通NFS共享的实现
+  1. 在 server0 上配置NFS服务 
+[root@server0 ~]# rpm -q nfs-utils
+
+   1）只读的方式共享目录 /public，只能被172.25.0.0/24网段中的客户机系统访问 
+ 
+  2. 在 desktop0 上访问NFS共享目录 
+
+
+
+
+   1）将 server0 的 /public 挂到本地 /mnt/nfsmount 
+   2）这些文件系统在系统启动时自动挂

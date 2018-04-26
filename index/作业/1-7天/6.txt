@@ -1,0 +1,104 @@
+案例练习,准备:
+            rht-vmctl  reset  classroom
+            rht-vmctl  reset  server
+	    rht-vmctl  reset  desktop
+######################################################
+
+案例1:指定yum软件源
+为 server0 指定可用的 yum 软件源
+– YUM软件库的地址为 http://classroom.example.com/rhel7.0/x86_64/dvd
+– 将此配置为虚拟机 server0 的默认软件仓库
+– 确认可用的仓库列表
+– 利用yum仓库安装xeyes
+– 运行指令xeyes查看效果
+[root@server0 ~]# rm -rf /etc/yum.repos.d/*
+[root@server0 ~]# vim /etc/yum.repos.d/nsd.repo 
+           [tehl7]
+           name=tehl 7.0
+           baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/
+           enabled=1
+           gpgcheck=0
+[root@server0 ~]# yum repolist 
+[root@server0 ~]# yum -y install xeyes
+[root@server0 ~]# xeyes
+
+
+
+
+案例2：chmod权限设置
+    1）以root用户新建/nsddir/目录，在该目录下新建文件readme.txt
+[root@server0 ~]# mkdir /nsddir
+[root@server0 ~]# touch /nsddir/readme.txt
+
+    2）使用户zhangsan能够在/nsddir/目录下创建/删除子目录
+[root@server0 ~]# setfacl -m u:zhangsan:rx /nsddir/
+
+    3）使用户zhangsan能够修改/nsddir/readme.txt文件的容
+[root@server0 ~]# setfacl -m u:zhangsan:rwx /nsddir/readme.txt 
+  
+ 
+案例3：chown归属设置
+    1）新建/tarena1目录
+	a）将属主设为gelin01，属组设为tarena组
+[root@server0 ~]# chown  gelin01:tarena /tarenal/
+
+	b）使用户gelin01对此目录具有rwx权限，其他人对此目录无任何权限
+[root@server0 ~]# chmod o=--- /tarenal/
+
+
+    2）使用户gelin02能进入、查看/tarena1文件夹（提示：将gelin02加入所属组）
+[root@server0 ~]# gpasswd -a gelin02 tarena
+
+
+    3）新建/tarena2目录
+	a）将属组设为tarena
+[root@server0 ~]# chown :tarena /tarena2
+
+	b）使tarena组的任何用户都能在此目录下创建、删除文件
+[root@server0 ~]# chmod g=rx /tarena2
+
+
+    4）新建/tarena/public目录
+	a）使任何用户对此目录都有rwx权限
+[root@server0 ~]# chmod o=--- /tarena/public/
+
+	b）拒绝zhangsan进入此目录，对此目录无任何权限
+[root@server0 ~]# setfacl -m u:zhangsan:--- /tarena/public/
+[root@server0 ~]# getfacl /tarena/public/
+
+
+
+案例4:权限设置
+	1、创建文件夹/data/test,设置目录的访问权限，使所有者和所属组具备读写执行的权限；其他人无任何权限
+[root@room9pc01 ~]# chmod u=rwx,g=rwx,o=--  /data/test/
+
+	2、递归修改文件夹/data/test的归属使所有者为zhangsan，所属组为tarena。
+[root@server0 ~]# chown -R zhangsan:tarena /data/test/
+
+	3、请实现在test目录下，新建的所有子文件或目录的所属组都会是tarena。
+[root@server0 ~]# chmod g=s /data/test/
+
+	4、为lisi创建ACL访问权限，使得lisi可以查看/etc/shadow文件
+[root@server0 ~]# setfacl -m u:lisi:r /etc/shadow
+
+
+案例5：绑定到LDAP验证服务
+
+ –  使用系统 classroom.example.com 提供的LDAP服务
+ –  验证服务的基本DN是：dc=example,dc=com
+ –  账户信息和验证信息都是由 LDAP 提供的
+ –  连接要使用证书加密，证书可以在下面的链接下载：
+      http://classroom.example.com/pub/example-ca.crt 
+ –  确认本地可以识别ldapuser0用户
+[root@server0 ~]# yum -y install sssd
+[root@server0 ~]# yum -y install authconfig-gtk.x86_64 
+[root@server0 ~]# authconfig-gtk
+
+
+案例6：访问NFS共享
+ –  查看classroom.example.com的NFS共享
+ –  将classroom.example.com的NFS共享目录，挂载到本地/home/guests
+
+[root@server0~]#mount classroom.example.com:/home/guests/ldapuser0 //home/guests/ldapuser0/
+[root@server0 ~]# su - ldapuser0
+上一次登录：三 2月  7 18:43:08 CST 2018pts/0 上

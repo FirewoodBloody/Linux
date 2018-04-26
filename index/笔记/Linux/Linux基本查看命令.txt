@@ -1,0 +1,390 @@
+#########################################################
+
+ • UNIX诞生, 1970-1-1
+
+ • Linux之父,Linus Torwalds
+
+
+  内核作用:        负责调配所有的硬件
+
+     用户操作---------->内核--------->硬件
+
+  版本号:主版本.次版本.修订号
+########################################################
+
+• 是一套公开发布的完整Linux系统= Linux内核 + 应用程序
+
+   格式化赋予空间文件系统: 数据在空间中如何存储（排列的规则）
+
+  Windows文件系统：  fat    NTFS 
+
+  Linux文件系统：     RHEL6  ext4    
+			     RHEL7  xfs
+                   SWAP   交换空间(虚拟内存)缓解物理真实内存的压力
+
+• 一块硬盘的“艺术”之旅
+– 物理硬盘==>分区规划==>格式化==>读/写文档
+
+• 基本作用
+ – 定义向磁盘介质上存储文档的方法和数据结构,以及读取文档的规则
+ – 不同类型的文件系统,其存储/读取方式不一样
+ – 格式化操作就是建立新的文件系统
+
+##############################################################
+
+• 最顶层为根目录(/)： 所有的数据都在此目录下（Linux系统的起点）
+
+     /dev: 设备相关的文件
+
+    路径：  /dev/abc/1.txt
+
+hd,表示IDE设备
+sd,表示SCSI设备
+
+     /dev/hda         /dev/hdb       /dev/hdc       /dev/hdd
+
+     /dev/sda1        /dev/sdb3      /dev/sdc        /dev/sdd      
+
+ /dev/sda7设备所表示的含义？
+   
+    SCSI设备 第一块硬盘 第七个分区
+
+#################################################################
+安装RHEL7系统
+
+
+ 鼠标回到真机：Ctrl+Alt
+
+
+ Linux管理员用户：root
+
+
+
+
+###################################################################
+RHEL7基本操作
+
+   字符控制台
+• 虚拟控制台切换 ( Ctrl + Alt + Fn 组合键)
+  – tty1:图形桌面
+  – tty2~tty6:字符控制台
+
+###############################################################
+
+ 伪字符终端
+
+ 提示符： [用户名@计算机的主机名 当前所在目录 ]
+   
+     管理员的表示符号： #
+     普通用户的表示符号： $
+
+     ～：用户的家目录
+
+   /root:管理员的家目录
+
+   /home：普通用户的家目录
+
+############################################################
+ 查看及切换目录
+
+ • pwd — Print Working Directory
+    – 用途:查看当前工作目录
+
+ • cd — Change Directory
+    – 用途:切换工作目录
+    – 格式:cd [目标文件夹位置]
+
+  • ls — List
+   – 格式:ls [选项]... [目录或文件名]...
+
+[root@localhost ~]# pwd
+[root@localhost ~]# cd  /             #切换到 / 目录中
+ 
+[root@localhost /]# pwd        
+[root@localhost /]# ls                #显示当前目录内容
+[root@localhost /]# cd /boot          #切换到/boot目录
+
+[root@localhost boot]# pwd            
+[root@localhost boot]# ls             #显示当前目录内容
+[root@localhost boot]# ls  /root      #显示指定/root目录内容
+
+  蓝色：目录
+  黑色：文本文件
+
+#################################################################
+/etc/redhat-release ： 储存本机系统的具体版本信息
+
+[root@localhost /]# cat  /etc/redhat-release
+
+[root@localhost /]# cat  /etc/passwd    #查看/etc/passwd文件的内容
+
+[root@localhost /]# cat  /etc/fstab     #查看/etc/fstab文件的内容
+[root@localhost /]# clear     #清屏
+                    Ctrl+l    #清屏
+################################################################
+
+• 命令行的一般格式
+  – 命令字       [选项]...       [参数1]    [参数2]...
+ 
+   cat     -n    /etc/passwd
+
+
+##############################################################
+
+• 列出内核版本
+[root@svr7 桌面]# uname   -r
+3.10.0-327.el7.x86_64
+
+[root@svr7 桌面]# cat  -n  /etc/passwd          #显示文件内容时加上行号
+
+[root@svr7 桌面]# cat  -n  /etc/redhat-release  #显示文件内容时加上行号
+
+
+############################################################
+注意事项：
+   1.命令严格区分大小写
+  2.bash: : 未找到命令...  原因：命令输入有误
+
+ 技巧：
+     补全键：Tab     连续按两次Tab
+
+###############################################################
+
+ 以 / 开始的绝对路径
+[root@localhost /]# cd /etc/pki
+[root@localhost pki]# pwd
+
+[root@localhost pki]# ls
+
+[root@localhost pki]# cd /etc/pki/CA
+[root@localhost CA]# pwd
+
+ 以当前为参照的相对路径
+[root@localhost CA]# cd /etc/pki/
+[root@localhost pki]# pwd
+[root@localhost pki]# ls
+
+[root@localhost pki]# cd CA
+[root@localhost CA]# pwd
+
+[root@localhost CA]# cd /etc/pki/
+[root@localhost pki]# cd ..         #返回到上一层目录（后退）
+[root@localhost /etc]# pwd
+
+##################################################################
+
+• ls — List
+• 常用命令选项
+– -l :以长格式显示（显示目录内容的详细信息）
+
+[root@localhost /]# ls  -l   /root/    #显示指定目录内容的详细信息
+[root@localhost /]# ls  -l   /boot/    #显示指定目录内容的详细信息
+[root@localhost /]# ls  -l             #显示当目录内容的详细信息
+
+查看命令的帮助信息操作
+[root@localhost /]# man  ls           #按q退出
+   
+[root@localhost /]# man  cat          #按q退出
+
+[root@localhost /]# man  uname        #按q退出
+
+###############################################################
+
+
+• 列出CPU处理器信息
+[root@room9pc01 ~]# lscpu
+
+• 列出内存信息
+[root@room9pc01 ~]# cat /proc/meminfo
+
+• 列出当前系统的  临时主机名称
+[root@svr7 桌面]#  hostname
+[root@svr7 桌面]#  hostname  A
+[root@svr7 桌面]#  hostname
+    在开一个新的终端，可以看到提示符的变化
+
+• 列出已激活的网卡连接信息   默认第一张网卡的名为 eth0
+[root@svr7 桌面]# ifconfig
+
+[root@A ~]# ifconfig eth0 192.168.1.1  #临时设置
+[root@A ~]# ifconfig eth0
+[root@A ~]# ping 192.168.1.1
+
+  Ctrl+c： 结束正在运行的命令
+
+############################################################
+
+• 关机:poweroff
+[root@svr7 ~]# poweroff
+
+• 重启:reboot
+[root@svr7 ~]# reboot
+
+#############################################################
+创建文档
+• mkdir — Make Directory
+
+– 格式:mkdir   [/路径/]目录名...
+
+[root@svr7 ~]# mkdir  nsd01
+[root@svr7 ~]# ls
+[root@svr7 ~]# mkdir  /boot/nsd02
+[root@svr7 ~]# ls /boot
+[root@svr7 ~]# mkdir  /root/haha  /opt/test
+[root@svr7 ~]# ls /root
+[root@svr7 ~]# ls /opt
+
+创建文档
+• touch命令
+– 用途:新建空文件
+[root@svr7 ~]# touch /opt/1.txt
+[root@svr7 ~]# ls /opt
+
+###############################################################
+
+文本内容操作
+
+• less分屏阅读工具查看大文件
+• 格式:less [选项] 文件名...   
+   全文查找  /查找的内容
+
+[root@A ~]# less /etc/passwd
+
+• head、tail 命令 查看文件部分内容
+– 格式:  head -n 数字 文件名
+       tail -n 数字 文件名
+
+[root@A ~]# head -3 /etc/passwd
+[root@A ~]# head -4 /etc/passwd
+
+[root@A ~]# tail -2 /etc/passwd
+[root@A ~]# tail -1 /etc/passwd
+
+• grep工具
+
+– 用途:输出包含指定字符串的行
+
+– 格式:grep [选项]... '查找条件' 目标文件
+
+[root@A ~]# grep root  /etc/passwd
+[root@A ~]# grep bash  /etc/passwd
+[root@A ~]# grep UUID  /etc/fstab
+[root@A ~]# grep man   /etc/man_db.conf
+
+#########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

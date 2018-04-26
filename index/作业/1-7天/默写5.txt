@@ -1,0 +1,37 @@
+1.创建用户的命令是什么？常用的选项都有那些？
+     useradd   -u  -d  -G  -s
+
+2.非交互为lisi设置密码为123  请写出该命令
+     echo  123 | passwd  --stdin  lisi  
+
+3.请写出 存放用户基本信息的配置文件
+         /etc/passwd
+  
+4.请写出 禁止用户登录系统的解释器程序
+         /sbin/nologin
+
+5.将harry用户加入tedu组，请写出该命令
+         gpasswd -a harry  tedu  
+
+6.请写出 组账号基本信息配置文件
+       /etc/group
+
+7.将/usr/local进行归档及压缩为/root/file.tar.gz  请写出该命令
+        tar -zcPf /root/file.tar.gz  /usr/local
+ 
+8.将/root/file.tar.gz进行解压缩到/opt目录下  请写出该命令
+        tar  -xf   /root/file.tar.gz   -C  /opt
+
+9.请写出 配置周期性计划任务的时间格式
+        分  时  日  月  周
+
+10.请写出 重启chronyd服务的命令
+     systemctl  restart  chronyd
+
+11.请写出 设置chronyd服务为开机自启的命令
+     systemctl  enable  chronyd
+
+
+
+
+

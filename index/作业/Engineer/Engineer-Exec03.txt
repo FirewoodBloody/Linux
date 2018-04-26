@@ -1,0 +1,98 @@
+案例1:为虚拟机 server 配置以下静态地址参数
+– 主机名:server0.example.com
+– IP地址:172.25.0.11
+– 子网掩码:255.255.255.0
+– 默认网关:172.25.0.254
+– DNS服务器:172.25.254.254
+[root@server0 ~]# nmcli connection modify 'System eth0' ipv4.method manual ipv4.addresses '172.25.0.11/24 172.25.0.254' ipv4.dns '172.25.254.254' connection.autoconnect yes
+[root@server0 ~]# nmcli connection up 'System eth0' 
+Connection successfully activated (D-Bus active path: /org/freedesktop/NetworkManager/ActiveConnection/1)
+
+
+
+案例2:虚拟机 server0上操作
+        新建用户 alex，其用户ID为3456，密码是flectrag 
+[root@server0 ~]# useradd -u 3456 alex
+[root@server0 ~]# id alex
+uid=3456(alex) gid=3456(alex) 组=3456(alex)
+[root@server0 ~]# echo flectarg | passwd --stdin alex
+更改用户 alex 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+	创建下列用户、组以及组的成员关系： 
+	 – 一个名为 adminuser 的组 
+[root@server0 ~]# groupadd adminuser
+
+	 – 一个名为 natasha 的用户，其属于 adminuser 组， 这个组是该用户的从属组 
+[root@server0 ~]# useradd -G adminuser natasha
+[root@server0 ~]# id natasha
+uid=3458(natasha) gid=3459(natasha) 组=3459(natasha),3457(adminuser)
+
+	 – 一个名为 harry 的用户，其属于 adminuser 组，这个 组是该用户的从属组 
+[root@server0 ~]# useradd -G adminuser harry
+[root@server0 ~]# id harry
+uid=3459(harry) gid=3460(harry) 组=3460(harry),3457(adminuser)
+
+	 – 一个名为 sarah 的用户，其在系统中没有可交互的 Shell（/sbin/nologin），并且不是 adminuser 组的成员 
+[root@server0 ~]# useradd -s /sbin/nologin sarah
+
+	 – natasha 、harry、sarah 的密码都要设置为 flectra[root@server0 ~]# echo flectra | passwd --stdin natasha
+更改用户 natasha 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+[root@server0 ~]# echo flectra | passwd --stdin harry
+更改用户 harry 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+[root@server0 ~]# echo flectra | passwd --stdin sarah
+更改用户 sarah 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+案例3:虚拟机 server0上操作
+	将文件 /etc/fstab 拷贝为 /var/tmp/fstab，并调整文件 /var/tmp/fstab权限 
+	满足以下要求：
+	– 此文件的拥有者是 root 
+	– 此文件属于 root 组 
+	– 此文件对任何人都不可执行 
+	– 用户 natasha 能够对此文件执行读和写操作 
+	– 用户 harry 对此文件既不能读，也不能写 
+	– 所有其他用户（当前的和将来的）能够对此文件进行 读操作
+
+案例4:虚拟机 server0上操作
+	创建一个共用目录 /home/admins，要求如下： 
+	 – 此目录的组所有权是 adminuser 
+	 – adminuser 组的成员对此目录有读写和执行的权限，除此以外的其他所有用户没有任何权限
+	 – root用户能够访问系统中的所有文件和目录 
+	 – 在此目录中创建的文件，其组的所有权会自动设置为 属于 adminuser 组
+
+
+案例5：设置SELinux保护
+为虚拟机 server0、desktop0 配置SELinux 
+  1）确保 SELinux 处于强制启用模式（permissive） 
+  2）在每次重新开机后，此设置必须仍然有效
+
+
+
+案例6：自定义用户环境
+为系统 server0  创建自定义命令 
+  1）自定义命令的名称为 qstat 
+  2）此自定义命令将执行以下操作： /bin/ps -Ao pid,tt,user,fname,rsz 
+  3）此自定义命令对系统中的所有用户都有
+
+
+
+案例7：配置聚合连接
+在两个虚拟机之间配置一个链路，要求如下： 
+	– 此链路使用接口 eth1 和 eth2 
+	– 此链路在其中一个接口失效时仍然能工作 
+	– 此链路在 server0 上使用下面的地址 172.16.3.20/255.255.255.0 
+	– 此链路在 desktop0 上使用下面的地址 172.16.3.25/255.255.255.0 
+	– 此链路在系统重启之后依然保持正常状态
+
+案例8：实现本机server0 的端口映射，防火墙策略
+ 
+ 本地应用的端口重定向
+ – 从客户机访问 5423 的请求，自动映射到本机 80 ，该策略永久生效
+ – 比如，访问以下两个地址可以看到相同的页面： 
+    http://server0.example.com:5423/ 
+    http://server0.example.com/
+
+

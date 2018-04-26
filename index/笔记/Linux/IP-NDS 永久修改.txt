@@ -1,0 +1,183 @@
+   Yum的提供方式：  网络   http://   ftp://      本地 file://
+
+##############################################################
+虚拟机Server0操作：
+
+ wget  命令行下载工具
+
+   wget  http://互联网路径
+   wget  ftp://互联网路径
+
+[root@server0 ~]# wget http://classroom.example.com/content/rhel7.0/x86_64/errata/Packages/kernel-3.10.0-123.1.2.el7.x86_64.rpm
+
+[root@server0 ~]# ls     #查看是否下载成功，当前有没有kernel.......rpm
+
+[root@server0 ~]# uname -r
+3.10.0-123.el7.x86_64
+[root@server0 ~]# rpm -ivh kernel-3.10.0-123.1.2.el7.x86_64.rpm 
+
+[root@server0 ~]# reboot 
+
+[root@room9pc01 ~]# ssh -X root@172.25.0.11
+
+[root@server0 ~]# uname -r
+3.10.0-123.1.2.el7.x86_64
+
+##################################################################
+网络参数配置
+
+一  设置永久主机名，修改配置文件/etc/hostname
+
+ [root@server0 ~]# vim /etc/hostname
+ [root@server0 ~]# cat /etc/hostname
+  A.tedu.cn
+ [root@server0 ~]# hostname
+  A.tedu.cn
+ [root@server0 ~]# exit            #退出远程登陆
+  登出
+ Connection to 172.25.0.11 closed.
+ [root@room9pc01 ~]# ssh -X root@172.25.0.11
+
+ [root@A ~]# echo student.tedu.cn  >  /etc/hostname 
+ [root@A ~]# cat /etc/hostname
+
+
+二  配置永久ip地址  子网掩码  网关地址
+
+[root@A ~]# vim /etc/sysconfig/network-scripts/ifcfg-eth0   #网卡配置文件
+   
+ nmcli连接管理
+
+ 1.查看识别的网卡名称
+
+[root@A ~]# nmcli connection show
+ 
+ 2.配置ip地址  子网掩码  网关地址
+
+#  nmcli connection  modify  'System eth0'   ipv4.method
+      连接网络                  修改        修改网卡的名字      修改ipv4的方法
+
+   manual   或    auto  
+     手工配置        自动配置
+
+   ipv4.addresses  '172.25.0.100/24    172.25.0.254' 
+     配置ipv4地址            ip地址    子网掩码          网关地址
+               
+   connection.autoconnect yes
+     每次开机自动启用
+ 
+[root@A ~]# cat /etc/sysconfig/network-scripts/ifcfg-eth0 
+
+ 3.激活配置
+
+[root@A ~]# nmcli  connection  up 'System eth0'
+
+
+三 配置永久DNS服务器地址：将网站域名解析成对应的IP地址
+
+   /etc/resolv.conf
+
+[root@student ~]# echo nameserver 172.25.254.254  > /etc/resolv.conf
+ 
+[root@student ~]# cat /etc/resolv.conf
+nameserver  172.25.254.254
+
+[root@student ~]# nslookup  server0.example.com  #测试DNS解析
+ Server:		172.25.254.254
+ Address:  	172.25.254.254#53
+ 
+ Name:	server0.example.com   
+ Address: 172.25.0.11
+
+
+
+########################################################
+ find 查找文档位置
+
+– find  [目录]  [条件1]   [条件2] ...
+
+– 常用条件表示:
+ -type 类型( f文本文件、d 目录、l 快捷方式)
+ -name "文档名称"
+
+ -size +|-文件大小(k、M、G)
+
+ -user 用户名
+
+[root@student ~]# find /boot/  -type l      #查找boot目录下为快捷方式
+[root@student ~]# ls /boot/grub/menu.lst 
+[root@student ~]# ls -l /boot/grub/menu.lst
+
+[root@student ~]# find /boot/  -type d       #查找boot目录下为目录
+[root@student ~]# find /boot/  -type f       #查找boot目录下为文本文件
+
+[root@student ~]# find  /etc  -name  "passwd"
+[root@student ~]# find  /etc  -name  "*.conf"
+[root@student ~]# find  /etc  -name  "*tab"
+
+[root@student ~]# touch /root/nsd01.txt
+[root@student ~]# touch /root/nsd02.txt
+[root@student ~]# mkdir /root/nsd1801
+
+[root@student ~]# find  /root/  -name  "nsd*"
+
+[root@student ~]# find  /root/  -name  "nsd*"  -type f
+
+[root@student ~]# find  /root/  -name  "nsd*"  -type d
+
+
+################################################################
+
+[root@student ~]# find /  -user student  -type f
+
+[root@student ~]# find /home  -user student   #查找属于student用户的文档
+
+[root@student ~]# find /boot  -size +10M   #查找大于10M
+
+[root@student ~]# find /boot  -size -10M   #查找小于10M
+
+###############################################################
+
+处理find查找的结果
+
+• 使用find命令的 -exec 操作
+– find .. .. -exec 处理命令  {}    \;
+
+– 优势:以 {} 代替每一个结果,逐个处理,遇 \; 结束
+
+ # find  /boot  -size +10M
+ # find  /boot  -size +10M  -exec cp  {}  /opt  \;
+ # ls  /opt
+
+ # find  /boot  -name "vm*" 
+ # find  /boot  -name "vm*" -exec cp  {}  /opt  \;
+ # ls  /opt
+
+ # mkdir /root/findfiles
+ # find /  -user student  -type f -exec  cp  {}  /root/findfiles \;
+ # ls  /root/findfiles
+
+ # find  /root  -name "nsd*" -type f 
+ # find  /root  -name "nsd*" -type f -exec cp {} /mnt \;
+ # ls /mnt
+###################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

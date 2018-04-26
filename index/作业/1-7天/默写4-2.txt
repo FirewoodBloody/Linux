@@ -1,0 +1,34 @@
+1.请写出IP地址分类中  C类地址的范围
+       192-223
+
+2.grep命令如果实现匹配时不区分大小写，需要加什么选项？
+    -i
+
+
+3.find常用选项都有那些？
+    -type    -name   -size  -user
+
+4.利用find查找/root以cfg结尾的并且必须是文件，将符合条件的文件复制到/opt目录，请写出该命令
+    find  /root  -name "*.cfg"  -type  f  -exec cp {}  /opt  \;
+
+
+5.Linux中主机名永久配置文件在哪里？
+    /etc/hostname
+
+
+6.Linux中DNS服务器地址永久配置文件在哪里？
+     /etc/res(tab)
+
+7.Linux中查看IP地址的命令？
+      ifconfig
+
+
+8.为root用户永久设置别名的配置文件在哪里？
+   /root/.bashrc
+
+
+
+
+
+
+

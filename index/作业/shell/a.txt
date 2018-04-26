@@ -1,0 +1,21 @@
+从 ftp 下载 regular_express.txt：
+过滤下载文件中包含 the 关键字			//grep "the" regular_express.txt 
+过滤下载文件中丌包含 the 关键字			//grep "[^the]" regular_express.txt 
+过滤下载文件中丌论大小写 the 关键字			//grep -i "the" regular_express.txt 
+过滤 test 或 taste 这两个单字			//grep -E "test|taste" regular_express.txt 
+过滤有 oo 的字节					//grep "oo" regular_express.txt 
+过滤丌想要 oo 前面有 g 的				//egrep "[^g]oo" regular_express.txt 			
+过滤 oo 前面丌想有小写字节				//grep "[^a-z]oo" regular_express.txt 
+过滤有数字的那一行					//egrep "[0-9]+" regular_express.txt 
+过滤以 the 开头的					//grep "^the" regular_express.txt 
+过滤以小写字母开头的					//egrep "^[a-z]+" regular_express.txt 
+过滤开头丌是英文字母					//egrep "^[^a-zA-Z]+" regular_express.txt 
+过滤行尾结束为小数点.那一行				//grep "[.]$" regular_express.txt 
+过滤空白行						//grep "^$" regular_express.txt 
+过滤出 g??d 的字串					//egrep "g..d" regular_express.txt 
+过滤至少两个 o 以上的字串				//egrep "(o{2})+" regular_express.txt
+过滤 g 开头和 g 结尾但是两个 g 之间仅存在至少一个 o//grep "goo*g" regular_express.txt
+过滤任意数字的行					//egrep "[0-9]+" regular_express.txt 
+过滤两个 o 的字串					//grep "o\{2\}" regular_express.txt 
+过滤 g 后面接 2 到 5 个 o，然后在接一个 g 的字串	//egrep "go{2,5}g" regular_express.txt 
+过滤 g 后面接 2 个以上 o 的				// grep "go\{2,\}" regular_express.txt 

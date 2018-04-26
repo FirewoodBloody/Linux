@@ -1,0 +1,562 @@
+管理用户和组
+
+   用户帐号：  1.可以登陆系统    2.实现访问控制（不同的用户具备不同的权限）
+
+   组帐号： 方便对用户帐号管理  权限方面
+
+   唯一标识：  UID   GID
+
+   管理员（root）:  UID 为 0
+
+   组帐号：基本组(私有组)       附加组（公共组  从属组）
+    
+    一个用户至少属于一个组
+
+##################################################################
+用户管理：
+
+添加用户
+    用户基本信息存放在 /etc/passwd 文件 (户口本)
+
+[root@server0 ~]# head  -1  /etc/passwd
+  root:x:0:0:root:/root:/bin/bash
+
+   用户名:密码占位符号:UID:基本的GIU:用户描述信息:家目录位置:默认的解释器
+
+• 使用 useradd 命令
+– useradd  [选项]...  用户名
+
+• 常用命令选项
+– -u 用户id、 -d 家目录路径、 -s 指定登陆的解释器程序 、-G 附加组
+
+[root@server0 ~]# useradd  nsd01 
+[root@server0 ~]# grep 'nsd01'   /etc/passwd
+
+[root@server0 ~]# useradd  -u  1200  nsd04  
+[root@server0 ~]# grep 'nsd04'   /etc/passwd
+
+[root@server0 ~]# useradd  -d  /opt/nsd05   nsd05
+[root@server0 ~]# ls  /opt/
+[root@server0 ~]# grep  'nsd05'  /etc/passwd
+
+
+  /sbin/nologin : 不能登陆操作系统
+
+[root@server0 ~]# useradd -s /sbin/nologin nsd06
+[root@server0 ~]# grep 'nsd06' /etc/passwd
+
+[root@server0 ~]# id haha            #如果用户不存在，显示未查找到该用户
+[root@server0 ~]# id nsd06           #查看用户基本信息
+ 
+[root@server0 ~]# groupadd tarena            #创建tarena组
+[root@server0 ~]# useradd -G tarena nsd07    #创建用户指定附加组
+[root@server0 ~]# id nsd07
+
+#################################################################
+
+• 使用 passwd 命令
+– passwd   [用户名]
+
+[root@server0 ~]# passwd nsd01
+更改用户 nsd01 的密码 。
+新的 密码：
+无效的密码： 密码是一个回文
+重新输入新的 密码：
+passwd：所有的身份验证令牌已经成功更新。
+
+ su  命令：可以实现命令行临时切换身份
+
+[root@server0 ~]# su - nsd01
+[nsd01@server0 ~]$ passwd 
+Changing password for user nsd01.
+Changing password for nsd01.
+(current) UNIX password:          #输入旧密码
+New password:                     #输入新的密码，符合复杂性要求
+Retype new password:              #输入上面新的密码
+passwd: all authentication tokens updated successfully.
+[nsd01@server0 ~]$ exit
+
+#################################################################
+管道操作：  将前面的命令输出结果，交由后面命令，当作后面命令的参数在处理一遍  
+
+  操作符号：| 
+
+
+[root@server0 ~]# ifconfig | head -2
+
+[root@server0 ~]# head -12  /etc/passwd  |   tail -5 
+
+[root@server0 ~]# cat -n /etc/passwd | head -12  |   tail -5 
+
+#################################################################
+
+非交互式设置密码
+
+ – echo '密码'    |     passwd    --stdin   用户名
+ 
+  --stdin : 非交互式，取消交互
+
+[root@server0 ~]# echo 123  |  passwd --stdin nsd01
+
+[root@server0 ~]# echo redhat  |  passwd --stdin nsd01
+
+###########################################################
+
+• 使用 usermod 命令
+– usermod [选项]... 用户名
+
+• 常用命令选项
+– -u 用户id、-d 家目录路径、-s 登录Shell
+– -G 附加组      //重置附加组
+
+[root@server0 ~]# useradd tom
+[root@server0 ~]# grep 'tom' /etc/passwd
+
+[root@server0 ~]# usermod -u 1300 -d /opt/tom -s /sbin/nologin tom
+
+[root@server0 ~]# grep 'tom' /etc/passwd
+
+#################################################################
+删除用户
+• 使用 userdel 命令
+– userdel  [-r]  用户名     #包括家目录一并删除
+
+[root@server0 ~]#  userdel -r nsd01
+[root@server0 ~]#  id nsd01
+
+[root@server0 ~]#  userdel -r nsd04
+[root@server0 ~]#  id nsd04
+
+#################################################################
+     /etc/shadow   #存放用户密码信息
+
+#################################################################
+组帐号的管理
+
+添加组
+  组基本信息存放在 /etc/group 文件
+
+  [root@server0 ~]# head -1 /etc/group
+  root:x:0:
+
+    组名:组的密码占位符号:本组的ID：本组的成员列表
+
+• 使用 groupadd 命令
+– groupadd   [-g 组ID]   组名
+
+[root@server0 ~]# groupadd  stugrp
+[root@server0 ~]# grep 'stugrp'  /etc/group
+
+[root@server0 ~]# useradd  natasha
+[root@server0 ~]# useradd  jack
+[root@server0 ~]# useradd  kenji
+[root@server0 ~]# useradd  chihiro
+
+
+
+• 使用 gpasswd 命令
+– gpasswd -a 用户名 组名
+– gpasswd -d 用户名 组名
+
+[root@server0 ~]# gpasswd -a kenji stugrp
+[root@server0 ~]# grep 'stugrp' /etc/group
+
+[root@server0 ~]# gpasswd -a natasha stugrp
+[root@server0 ~]# grep 'stugrp' /etc/group
+
+[root@server0 ~]# gpasswd -a jack stugrp
+[root@server0 ~]# grep 'stugrp' /etc/group
+
+[root@server0 ~]# gpasswd -d natasha stugrp
+[root@server0 ~]# grep 'stugrp' /etc/group
+
+[root@server0 ~]# gpasswd -a chihiro stugrp
+[root@server0 ~]# grep 'stugrp' /etc/group
+
+
+删除组
+• 使用 groupdel 命令
+– groupdel 组名
+############################################################
+  压缩与归档
+
+   Windows：先做归档   再作压缩
+
+   Linux： 1. 归档    与    2.压缩  分开去做
+
+
+  Linux 独有的压缩工具：  gzip    bzip2    xz
+
+[root@server0 opt]# cd /opt
+
+[root@server0 opt]# cp /etc/passwd /opt/a.txt
+[root@server0 opt]# cp /etc/group  /opt/b.txt
+[root@server0 opt]# cp /etc/shadow /opt/c.txt
+[root@server0 opt]# ls
+a.txt  b.txt  c.txt
+[root@server0 opt]# gzip   a.txt 
+[root@server0 opt]# ls
+
+[root@server0 opt]# bzip2  b.txt 
+[root@server0 opt]# ls
+
+[root@server0 opt]# xz   c.txt 
+[root@server0 opt]# ls
+
+  压缩格式：  gzip -----》.gz    bzip2-----》.bz2   xz-----》 .xz
+  压缩包：红色
+#################################################################
+归档   
+
+• tar 集成备份工具,  总结： 所有的操作都有f选项 必须放在所有选项的最后
+– -c:创建归档
+– -x:释放归档
+– -f:指定归档文件名称
+– -z、-j、-J:调用 .gz、.bz2、.xz 格式的工具进行处理
+– -t:显示归档中的文件清单
+– -P:保持归档内文件的绝对路径
+– -C(大写)：指定释放路径
+
+   tar  选项     tar包的名字      被归档的文件1   被归档的文件2  被归档的文件3.....
+
+[root@server0 opt]# cd  /opt
+
+[root@server0 opt]# tar -cPf  file01.tar /etc/passwd  /home/  /boot/
+[root@server0 opt]# ls
+file01.tar
+
+[root@server0 opt]# gzip  file01.tar 
+[root@server0 opt]# ls
+
+
+  # tar -zcPf /root/test01.tar.gz  /etc/passwd  /home/  /boot/
+
+  # tar -jcPf /root/test02.tar.bz2  /etc/passwd  /home/  /boot/
+
+  # tar -JcPf /root/test03.tar.xz  /etc/passwd  /home/  /boot/ 
+
+  # ls  /root
+ 
+ tar 解包
+
+  # tar -xf /root/test01.tar.gz -C /mnt/
+
+  # ls
+
+   将/root/test01.tar.gz    -C 指定  解压缩  解包  的位置为/mnt
+
+##########################################################
+案例2:创建一个备份包
+使用 tar 工具完成以下备份任务:
+– 创建一个名为 /root/backup.tar.bz2 的归档文件
+– 其中包含 /usr/local 目录中的内容
+– tar 归档必须使用 bzip2 进行压缩
+
+ # tar  -jcPf   /root/backup.tar.bz2  /usr/local/
+
+ # tar  -tf  /root/backup.tar.bz2    #查看/root/backup.tar.bz2内容
+
+
+#############################################################
+查看日期与时间
+
+[root@server0 opt]# date
+2018年  02月  05日  星期一  16:06:36  CST
+
+修改日期与时间
+[root@server0 opt]# date -s "年-月-日     时:分:秒 "
+
+[root@server0 opt]# date
+
+[root@server0 opt]# date -s "2018-2-5  16:09:00"
+
+#############################################################
+
+NTP时间同步
+
+NTP网络时间协议
+• Network Time Protocol
+– NTP服务器为客户机提供标准时间
+– NTP客户机需要与NTP服务器保持沟通
+
+
+   服务端：Linux系统上一款软件，服务端软件   classroom.example.com
+
+
+
+   客户端：  客户端软件  server0.example.com
+
+  1.安装chrony客户端软件
+ [root@server0 opt]# yum -y install chrony
+ [root@server0 opt]# rpm -q chrony
+
+  2.配置chrony客户端软件 /etc/chrony.conf
+
+ [root@server0 /]# vim  /etc/chrony.conf
+ 
+   Linux 中以 # 开头的行，都是注释信息
+	#server 0.rhel.pool.ntp.org iburst
+	#server 1.rhel.pool.ntp.org iburst
+	#server 2.rhel.pool.ntp.org iburst
+	server  classroom.example.com  iburst   #指定ntp时间同步服务器
+
+  3.重起chrony客户端软件服务
+
+ [root@server0 /]# systemctl  restart  chronyd   #重起服务
+ [root@server0 /]# systemctl  enable  chronyd    #设置开机自起服务  
+  
+ 4.验证：
+ [root@server0 /]# date -s "2008-9-9 10:1"
+ [root@server0 /]# date
+
+ [root@server0 /]# systemctl restart chronyd
+ [root@server0 /]# date
+
+ [root@server0 /]# date
+
+#############################################################
+cron计划任务
+
+cron任务概述
+• 用途:按照设置的时间间隔为用户反复执行某一项固定的系统任务
+
+• 系统服务:crond
+• 日志文件:/var/log/crond
+
+                   时间            执行任务
+
+      – 分   时   日   月   周        任务命令行(绝对路径)
+
+	*: 匹配范围内任意时间
+	,: 分隔多个不连续的时间点
+	-: 指定连续时间范围
+	/n: 指定时间频率,每n ...
+
+• 使用 crontab 命令
+– 编辑:crontab  -e  [-u 用户名]
+
+
+    每分钟记录当前的系统时间，写入/opt/time.txt
+
+ [root@server0 /]# date >> /opt/time.txt
+ [root@server0 /]# cat /opt/time.txt
+
+ [root@server0 /]# crontab  -e 
+  */1   *   *   *   *   date  >>  /opt/time.txt
+
+
+ [root@server0 /]# cat /opt/time.txt 
+
+ [root@server0 /]# cat /opt/time.txt 
+
+
+      – 分   时   日   月   周        任务命令行(绝对路径)
+
+#############################################################
+
+  grep  匹配空行
+
+      '^$'    匹配空行
+
+[root@server0 /]# grep -v  '^$'  /etc/default/useradd 
+
+  Linux请显示  配置文件的有效信息（去除注释   去除空行）
+
+ # cat  /etc/login.defs
+
+ # grep -v  '^#' /etc/login.defs         #去除注释
+
+ # grep -v  '^#' /etc/login.defs  |  grep -v  '^$'    #去除注释   去除空行
+
+
+ # grep -v  '^#' /etc/login.defs  |   grep -v  '^$'    >  /opt/1.txt
+
+ # cat /opt/1.txt
+
+
+#################################################################
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

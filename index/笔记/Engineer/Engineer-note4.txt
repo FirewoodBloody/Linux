@@ -1,0 +1,567 @@
+
+
+
+
+
+虚拟机server0
+
+一、配置永久的主机名：  server0.example.com
+
+[root@server0 ~]# vim /etc/hostname
+ server0.example.com
+
+二、配置静态ip地址  172.25.0.11/24    网关：172.25.0.254
+
+# nmcli  connection  modify  'System eth0' 
+  ipv4.method  manual 
+  ipv4.addresses  '172.25.0.11/24   172.25.0.254' 
+  connection.autoconnect  yes
+
+# nmcli  connection  up  'System eth0'
+
+# ifconfig  |  head  -2
+
+三、配置DNS服务器地址： 172.25.254.254
+
+        将域名解析成IP地址
+
+[root@server0 ~]# echo  nameserver  172.25.254.254  >  /etc/resolv.conf
+[root@server0 ~]# cat /etc/resolv.conf
+ nameserver  172.25.254.254
+
+[root@server0 ~]# nslookup  server0.example.com
+
+四、搭建Yum软件仓库
+
+  服务端：classroom.example.com
+
+  客户端 : server0
+
+[root@server0 ~]# rm -rf  /etc/yum.repos.d/*
+[root@server0 ~]# vim /etc/yum.repos.d/dvd.repo
+	[rhel7]
+	name=rhel7
+	baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/
+	enabled=1
+	gpgcheck=0
+
+[root@server0 ~]# yum  repolist 
+
+##################################################################
+
+设置防火墙默认区域为trusted
+
+虚拟机Server0
+[root@server0 ~]# firewall-cmd  --set-default-zone=trusted 
+
+虚拟机desktop0
+[root@desktop0 ~]# firewall-cmd  --set-default-zone=trusted 
+
+
+##########################################################
+配置SMB共享  跨平台的共享    Windows 与  Linux
+
+• 所需软件包:samba
+
+• 系统服务:smb
+
+
+• Samba 软件项目
+– 用途:为客户机提供共享使用的文件夹
+– 协议:SMB(TCP 139)、CIFS(TCP 445)
+
+服务端：server0.example.com
+
+1.安装软件包:samba
+[root@server0 ~]# yum  -y  install  samba
+
+2.建立Samba共享帐号
+
+[root@server0 ~]# useradd harry
+[root@server0 ~]# useradd kenji
+[root@server0 ~]# useradd chihiro
+
+[root@server0 ~]# echo redhat  |  passwd  --stdin  harry
+[root@server0 ~]# echo redhat  |  passwd  --stdin  kenji
+[root@server0 ~]# echo redhat  |  passwd  --stdin  chihiro
+
+[root@server0 ~]# pdbedit -a harry     #将本地用户harry设置为Samba共享帐号
+[root@server0 ~]# pdbedit -a kenji     
+[root@server0 ~]# pdbedit -a chihiro
+[root@server0 ~]# pdbedit -L           #显示本地都有那些Samba共享帐号
+harry:1001:
+chihiro:1003:
+kenji:1002:
+
+3. 修改配置文件设置Samba共享
+
+[root@server0 ~]# mkdir  /common
+[root@server0 ~]# echo  123  >  /common/1.txt
+[root@server0 ~]# ls  /common/
+
+[root@server0 ~]# vim /etc/samba/smb.conf 
+
+        workgroup = STAFF                #设置工作组
+
+  在命令模式下，按  大写的  G  到全文最后
+
+  [common]                              #设置共享名
+    path = /common                      #设置共享的实际路径
+
+4.重起smb服务，设置开机自起
+[root@server0 ~]# systemctl restart smb    #重起服务
+[root@server0 ~]# systemctl enable smb     #设置开机自起
+
+5. SELinux设置布尔值（功能的开关）
+      – 需要加 -P 选项才能实现永久设置
+
+[root@server0 ~]# getsebool  -a  |  grep  samba       #查看所有布尔值
+
+[root@server0 ~]# 
+
+[root@server0 ~]# getsebool  -a  |  grep  samba
+################################################################
+客户端操作：desktop0.example.com
+
+1.所需软件包:samba-client
+[root@desktop0 ~]# yum -y install samba-client
+
+2.查看对端的共享名
+[root@desktop0 ~]# smbclient  -L  172.25.0.11
+Enter root's password: 
+
+3. 访问对端的共享
+[root@desktop0 ~]# smbclient  -U  harry  //172.25.0.11/common
+Enter harry's password: 
+Domain=[STAFF] OS=[Unix] Server=[Samba 4.1.1]
+smb: \> 
+
+##############################################################
+采用 更加方便、科学的访问方式
+
+客户端操作：desktop0.example.com
+
+• 创建挂载点
+[root@desktop0 ~]# mkdir  /mnt/nsd   
+
+• 所需软件包:cifs-utils
+[root@desktop0 ~]# yum  -y install  cifs-utils
+
+# mount -o user=harry,pass=123  //172.25.0.11/common   /mnt/nsd/
+
+# ls  /mnt/nsd/
+
+# df  -h
+
+##################################################################
+客户端：实现开机自动挂载 /etc/fstab
+
+   _netdev : 标识本设备为网络设备
+                    （先启动网络服务具备ip地址等网络参数后，在进行挂载本设备）
+
+     cifs  ： samba共享设备的网络文件系统
+
+[root@desktop0 ~]# vim  /etc/fstab 
+
+ //172.25.0.11/common   /mnt/nsd   cifs  
+  defaults,user=harry,pass=123,_netdev   0  0
+
+[root@desktop0 ~]# umount /mnt/nsd
+[root@desktop0 ~]# df -h
+
+[root@desktop0 ~]# mount  -a       #检测/etc/fstab是否书写正确
+[root@desktop0 ~]# df -h
+
+#################################################################
+实现读写的samba共享
+
+虚拟机Server0
+1.修改配置文件,设置新的共享
+[root@server0 ~]# vim /etc/samba/smb.conf 
+[devops]                      #共享名
+   path = /devops             #共享路径
+2.建立相应的目录
+[root@server0 ~]#  mkdir /devops
+[root@server0 ~]#  echo abc > /devops/abc.txt
+[root@server0 ~]#  ls /devops
+3.重起smb服务，设置开机自起
+[root@server0 ~]#  systemctl  restart  smb    #重起服务
+[root@server0 ~]#  systemctl  enable  smb     #设置开机自起
+
+虚拟机Desktop0:
+[root@Desktop0 ~]# vim /etc/fstab
+
+ //172.25.0.11/devops  /mnt/dev   cifs  
+  defaults,user=chihiro,pass=123,_netdev  0  0
+
+[root@Desktop0 ~]# mkdir /mnt/dev
+[root@Desktop0 ~]# mount -a
+
+
+
+
+##########################################################
+
+客户端访问服务端资源：
+    1.服务本身访问控制
+    2.目录的本地权限
+  3.SELinux访问控制
+    4. 防火墙策略控制
+
+服务端操作：server0
+1.修改配置文件，声明chihiro可写
+
+[root@server0 ~]# vim /etc/samba/smb.conf
+[devops]
+  path = /devops
+  write list = chihiro
+
+2.重起smb服务
+[root@server0 ~]# systemctl  restart  smb
+
+3.设置本地权限
+[root@server0 ~]# setfacl -m  u:chihiro:rwx  /devops/
+[root@server0 ~]# getfacl  /devops/
+
+4.修改SELinux功能开关
+[root@server0 ~]# getsebool -a | grep samba
+[root@server0 ~]# setsebool samba_export_all_rw on
+
+##############################################################
+多用户（multiuser）的samba共享，专为普通用户设计
+
+• SMB客户端的 multiuser 挂载技术
+– 管理员只需要作一次挂载
+– 客户端在访问挂载点时,若需要不同权限,可以临时
+切换为新的共享用户(无需重新挂载)
+
+
+• 实现方式
+1)挂载SMB共享时启用 multiuser 支持
+2)使用 cifscreds 临时切换身份
+
+客户端操作：
+1.开机自动挂载配置文件，添加参数
+
+  – multiuser,提供对客户端多个用户身份的区分支持
+  – sec=ntlmssp,提供NT局域网管理安全支持
+
+[root@desktop0 ~]# vim /etc/fstab 
+
+//172.25.0.11/devops /mnt/dev cifs defaults,user=kenji,pass=123,_netdev,multiuser,sec=ntlmssp 0 0
+
+[root@desktop0 ~]# umount /mnt/dev/
+[root@desktop0 ~]# mount -a
+[root@desktop0 ~]# df -h
+[root@desktop0 ~]# su - student
+[student@desktop0 ~]$ cifscreds add -u chihiro 172.25.0.11  #提交新的身份
+Password: 
+
+[student@desktop0 ~]$ ls /mnt/dev/
+[student@desktop0 ~]$ touch /mnt/dev/haha.txt
+[student@desktop0 ~]$ exit
+
+#################################################################
+
+配置NFS共享    Linux 与  Linux
+
+• Network File System,网络文件系统
+ – 用途:为客户机提供共享使用的文件夹
+ – 协议:NFS(TCP/UDP 2049)、RPC(TCP/UDP 111)
+
+ • 所需软件包: nfs-utils
+ • 系统服务: nfs-server
+
+服务端：server0.example.com
+1.所需软件包: nfs-utils
+[root@server0 ~]# rpm -q nfs-utils
+
+• 修改 /etc/exports
+– 文件夹路径  客户机地址(权限)   客户机地址(权限) .. ..
+
+[root@server0 ~]# vim /etc/exports
+/public    *(ro)
+[root@server0 ~]# mkdir  /public
+[root@server0 ~]# cp /etc/passwd  /public/pass.txt
+
+[root@server0 ~]# systemctl restart  nfs-server
+[root@server0 ~]# systemctl enable  nfs-server
+################################################################
+客户端：
+[root@desktop0 ~]# mkdir /mnt/nfs
+[root@desktop0 ~]# showmount -e 172.25.0.11     #查看有哪些nfs共享
+Export list for 172.25.0.11:
+/public   *
+
+[root@desktop0 ~]# vim /etc/fstab               #实现开机自动挂载
+
+172.25.0.11:/public  /mnt/nfs   nfs   defaults,_netdev  0  0
+
+[root@desktop0 ~]# mount -a
+[root@desktop0 ~]# df -h
+#################################################################
+划分分区
+
+1.查看识别的磁盘
+
+[root@server0 ~]# lsblk
+
+2.划分分区
+
+[root@server0 ~]# fdisk  /dev/vdb
+   划分三个主分区均是2G
+
+[root@server0 ~]# ls /dev/vdb[1-3]
+/dev/vdb1  /dev/vdb2  /dev/vdb3
+[root@server0 ~]# lsblk 
+
+3.将第一个主分区，格式化为xfs文件系统，开机自动挂载到/mnt/mypart
+[root@server0 ~]# mkfs.xfs /dev/vdb1
+[root@server0 ~]# blkid /dev/vdb1
+
+ # echo  /dev/vdb1  /mnt/mypart  xfs  defaults  0  0  >>  /etc/fstab 
+
+[root@server0 ~]# mkdir /mnt/mypart
+[root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+
+4.将第二个主分区与第三个主分区，组成卷组systemvg
+[root@server0 ~]# vgcreate systemvg /dev/vdb[2-3]
+
+[root@server0 ~]# vgs
+
+5.划分逻辑卷 lvtest  大小为  3G
+
+[root@server0 ~]# lvcreate -L 3G -n lvtest systemvg
+[root@server0 ~]# lvs
+
+[root@server0 ~]# mkfs.ext4   /dev/systemvg/lvtest
+[root@server0 ~]# blkid  /dev/systemvg/lvtest
+
+[root@server0 ~]# mkdir /mnt/mylv
+[root@server0 ~]# mount /dev/systemvg/lvtest /mnt/mylv
+[root@server0 ~]# df -h
+
+6.逻辑卷 lvtest 扩大到 大小为  6G
+
+[root@server0 ~]# fdisk /dev/vdb    #划分扩展分区，在划分逻辑分区
+
+[root@server0 ~]# partprobe         #刷新  新的分区
+[root@server0 ~]# ls /dev/vdb5
+
+[root@server0 ~]# vgextend systemvg /dev/vdb5      #扩展卷组空间
+[root@server0 ~]# vgs
+
+[root@server0 ~]# lvextend -L 6G /dev/systemvg/lvtest   #扩展逻辑卷空间
+[root@server0 ~]# lvs
+
+[root@server0 ~]# resize2fs /dev/systemvg/lvtest   #刷新 文件系统
+
+[root@server0 ~]# df -h
+
+##################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

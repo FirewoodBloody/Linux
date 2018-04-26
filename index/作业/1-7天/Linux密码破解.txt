@@ -1,0 +1,48 @@
+﻿
+##################################################
+
+
+重设root密码
+
+案例1:为虚拟机 server 重设管理密码
+
+
+1)重启系统,进入 recovery 恢复模式
+按e键，
+
+找到 linux16 行，末尾添加 rd.break console=tty0
+
+按 ctrl + x 启动
+
+
+2)以可写方式重新挂载 /sysroot,并切换到此环境
+
+
+switch_root# mount  -o  remount,rw  /sysroot
+
+switch_root# chroot  /sysroot
+
+sh-3.2#
+
+
+3)将root用户的密码设置为 redhat
+
+
+sh-3.2# echo  123  |  passwd  --stdin  root
+
+
+4)重设SELinux安全标签(安全增强版Linux)
+
+
+# touch  /.autorelabel   //让  SElinux  失忆
+
+
+5)先后执行 exit、reboot 完成修复
+
+# exit
+
+# reboot
+
+
+#################################################
+

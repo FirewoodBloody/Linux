@@ -1,0 +1,66 @@
+45.102.200.50
+255.255.255.224
+
+                          .00110010
+11111111.11111111.11111111.11100000
+
+2的n次方-2
+
+192.168.0.1
+
+arp
+地址解析协议
+
+icmp
+
+HSRP
+备份网关
+活跃路由器
+备份路由器
+虚拟路由器
+进入组接口
+Switch(config-if-range)#in range f0/3-4
+捆绑链路
+Switch(config-if-range)#channel-group 2 mode on
+进入以太通道1
+Switch(config)#interface port-channel 1
+配置为中继链路
+Switch(config-if)#switchport mode trunk 
+
+所有交换机都要创建 vlan10 vlan20
+端口捆绑在不同通道中
+左边三层交换机vlan10配置192.168.10.252
+             vlan20配置192.168.20.252
+右边三层交换机vlan10配置192.168.10.253
+             vlan20配置192.168.20.253
+三层交换机中开启路由功能功能  ip routing
+HSRP
+MS1的vlan10配置standby 10 ip 192.168.10.254
+Switch(config-if)#standby 10 priority 105
+Switch(config-if)#standby 10 preempt
+     vlan20配置standby 20 ip 192.168.20.254
+Switch(config-if)#standby 20 preempt
+
+MS2的vlan20配置standby 20 ip 192.168.20.254
+Switch(config-if)#standby 20 priority 105
+Switch(config-if)#standby 20 preempt
+     vlan10配置standby 10 ip 192.168.10.254
+Switch(config-if)#standby 10 preempt
+路由器与三层交换机配置ospf，分别宣告所在区域的直连网段
+察看路由表  Router#show ip route
+静态一对一
+动态多对一  PAT
+在路由器中手工添加默认路由，然后再ospf中宣告默认信息源
+Router(config-router)#default-information originate
+
+
+
+
+
+
+
+
+
+
+
+

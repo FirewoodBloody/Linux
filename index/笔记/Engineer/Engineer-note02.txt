@@ -1,0 +1,845 @@
+###############################################################
+ 划分分区  
+     将/dev/vdb划分,5个可以用的分区  
+     
+     三个主分区2G   两个逻辑分区  分别为2G与1G
+
+
+ [root@server0 ~]# lsblk 
+ [root@server0 ~]# ls /dev/vdb[1-6]
+
+################################################################
+
+ 划分逻辑卷  大小为 5G  逻辑卷名字为lvtest01    逻辑卷文件系统为 xfs
+ 此逻辑卷开机自动挂载到/mylvm
+
+ [root@server0 ~]# vgcreate  nsd1801  /dev/vdb[1-3]  /dev/vdb[5-6]
+
+ [root@server0 ~]# lvcreate -L 5G  -n lvtest01 nsd1801
+
+ [root@server0 ~]# mkfs.xfs  /dev/nsd1801/lvtest01
+
+ [root@server0 ~]# mkdir /mylvm
+
+ [root@server0 ~]# vim /etc/fstab
+
+ /dev/nsd1801/lvtest01  /mylvm   xfs  defaults  0 0
+
+ [root@server0 ~]# mount -a
+ [root@server0 ~]# df  -h
+
+##################################################################
+Shell脚本基础
+
+    脚本：  可以运行文本文件，可以实现某种功能
+
+   • 提前设计可执行语句,用来完成特定任务的文件
+
+    将命令都写入到文本文件，让后赋予文本文件执行权限(命令的堆积)
+
+  • 非交互式
+      – 需要提前设计、智能化难度大
+      – 批量执行、效率高
+      – 方便在后台静悄悄地运行
+
+##############################################################
+  
+[root@server0 ~]# vim /root/hello.sh 
+  echo  hello world
+
+[root@server0 ~]#  chmod  +x   /root/hello.sh 
+
+[root@server0 ~]#  /root/hello.sh     #绝对路径执行文件
+
+
+[root@server0 ~]# vim  /root/user.sh
+
+ useradd  zhangsan
+ echo 123  |  passwd --stdin zhangsan
+
+[root@server0 ~]# chmod  +x   /root/user.sh
+
+[root@server0 ~]# /root/user.sh
+
+
+规范Shell脚本的一般组成
+ • #! 环境声明（声明下列可执行代码用什么程序翻译）
+ • # 注释文本
+ • 可执行代码
+
+
+[root@server0 ~]# vim /root/1.sh 
+ #!/bin/bash
+ cat /etc/redhat-release
+ uname -r
+ hostname
+ ifconfig | head -2 | tail -1
+
+
+[root@server0 ~]# chmod +x /root/1.sh 
+
+[root@server0 ~]# /root/1.sh
+
+#################################################################
+简单脚本技巧
+
+管道传递
+• 使用 | 管道操作
+– 将前一条命令的标准输出交给后一条命令处理
+
+
+重定向输出
+
+      >   :  只收集前面命令的正确输出，将其正确输出写入文本文件
+      2> :  只收集前面命令的错误输出，将其错误输出写入文本文件
+      &> :  收集前面命令的正确与错误输出，将其正确与错误输出写入文本文件
+
+[root@server0 ~]# echo 123 > /opt/1.txt
+[root@server0 ~]# cat /opt/1.txt
+
+[root@server0 ~]# cat /etc
+[root@server0 ~]# cat /opt/1.txt  /etc
+
+[root@server0 ~]# cat /opt/1.txt  /etc > /opt/a.txt
+[root@server0 ~]# cat /opt/a.txt
+
+[root@server0 ~]# cat /opt/1.txt /etc 2> /opt/a.txt 
+[root@server0 ~]# cat /opt/a.txt
+
+[root@server0 ~]# cat /opt/1.txt /etc &> /opt/a.txt 
+[root@server0 ~]# cat /opt/a.txt
+
+
+   /dev/null : 黑洞设备，专门收集无用的输出信息
+
+[root@server0 ~]# vim /root/user.sh
+ #!/bin/bash
+ useradd nsd01 &> /dev/null
+ echo nsd01用户创建成功
+ echo 123  | passwd --stdin nsd01 &> /dev/null
+ echo nsd01用户密码设置成功
+
+[root@server0 ~]# chmod +x /root/user.sh
+
+[root@server0 ~]# /root/user.sh
+
+
+################################################################
+
+  为了增加脚本适应多变的环境  多变的需求   使用方便性  所以我们要用变量
+
+
+  变量：会变化的量，以不变的名称，存储可以变化的值（容器）
+
+  变量定义：   变量名=变化的值
+################################################################
+  为了降低脚本使用复杂性，使用交互式
+
+  read  ：产生交互的方式，将用户从键盘上的输入，赋予一个变量来储存
+
+        -p  : 书写屏幕输出信息
+
+[root@server0 ~]# vim /root/user.sh 
+ #!/bin/bash
+ read  -p   '请输入您要创建的用户名:'    abc
+ useradd  $abc  &> /dev/null
+ echo  $abc用户创建成功
+ echo 123  |  passwd   --stdin  $abc  &> /dev/null
+ echo  $abc用户密码设置成功
+
+
+[root@server0 ~]# /root/user.sh 
+
+##############################################################
+变量的定义
+
+什么是变量
+• 以不变的名称存放的可能会变化的值
+– 变量名=变量值
+– 方便以固定名称重复使用某个值
+– 提高对任务需求、运行环境变化的适应能力
+
+
+
+• 设置变量时的注意事项
+– 若指定的变量名已存在,相当于为此变量重新赋值
+
+– 等号两边不要有空格
+– 变量名只能由字母/数字/下划线组成,区分大小写
+– 变量名不能以数字开头,不要使用关键字和特殊字符
+
+
+• 基本格式
+– 引用变量值:$变量名
+– 查看变量值:echo $变量名、echo  ${变量名}
+
+[root@server0 ~]# a=rhel
+[root@server0 ~]# echo $a
+rhel
+[root@server0 ~]# echo ${a}
+rhel
+[root@server0 ~]# echo $a7
+
+[root@server0 ~]# echo ${a}7
+rhel7
+[root@server0 ~]# 
+
+
+补充：
+     $[ ] : 运算
+
+     单引号 ''   :  让所有的特殊字符，变成普通字符
+
+[root@server0 ~]# echo '* ? [] {} | >'
+
+[root@server0 ~]# echo  $[ 1 + 1 ]
+[root@server0 ~]# echo  $[ 10 - 1 ]
+[root@server0 ~]# echo  $[ 3 * 2 ]
+[root@server0 ~]# echo  $[ 10 / 3 ]     #除法运算
+[root@server0 ~]# echo  $[ 10 % 3 ]     #取余数运算
+
+     $( ) : 将命令输出结果，作为参数  与  反撇号  ``  作用一致
+    
+[root@server0 opt]# date +%F
+[root@server0 opt]# cd /opt
+
+[root@server0 opt]# mkdir $(date +%F)
+[root@server0 opt]# ls 
+
+[root@server0 opt]# mkdir mydir-$(date +%F)
+[root@server0 opt]# ls
+
+[root@server0 opt]# mkdir $(hostname)-$(date +%F)
+[root@server0 opt]# ls
+
+#################################################################
+环境变量
+
+    USER ： 储存当前登陆的用户名
+
+[root@server0 /]# echo  $USER
+root
+[root@server0 /]# su - student
+
+[student@server0 ~]$ echo  $USER
+student
+[student@server0 ~]$ exit
+logout
+[root@server0 /]# 
+
+################################################################
+位置变量
+ • 在执行脚本时提供的命令行参数
+
+[root@server0 /]# vim /root/2.sh
+ #!/bin/bash
+ echo $1
+ echo $2
+ echo $3
+[root@server0 /]# chmod +x /root/2.sh
+[root@server0 /]# /root/2.sh  haha  xixi  hehe
+ haha
+ xixi
+ hehe
+
+
+#######################################################
+预定义变量
+
+   $#   已加载的位置变量的个数(运行脚本，脚本后面书写了多少个参数)
+   $*   所有位置变量的值
+
+  
+
+
+[root@server0 /]# vim /root/2.sh
+ #!/bin/bash
+ echo $1
+ echo $2
+ echo $3
+ echo $#
+ echo $*
+
+[root@server0 /]# /root/2.sh  100  200  300 400 500  600
+
+
+ $?   程序退出后的状态值,0表示正常,其他值异常
+
+[root@server0 /]# cat /etc/redhat-release 
+[root@server0 /]# echo $?
+
+[root@server0 /]# cat /etc
+[root@server0 /]# echo $?
+
+[root@server0 /]# ping  -c  2  127.0.0.1
+[root@server0 /]# echo $?
+
+[root@server0 /]# ping  -c  2  1.2.3.4
+[root@server0 /]# echo $?
+
+#############################################################
+
+
+测试操作
+
+ – [ 测试表达式 ]
+
+
+常用的测试选项
+• 检查文件状态
+	-e：文档存在为真
+	-d：存在并且为目录，才为真
+	-f：存在并且为文本文件，才为真
+	-r：存在并且有读取权限，才为真
+	-w：存在并且有写入权限，才为真
+	-x：存在并且有执行权限，才为真
+
+
+• 比较整数大小(带e字母的都有 等于 二字)
+   -gt ： 大于
+   -ge ： 大于等于
+   -eq ： 等于
+   -ne ： 不等于
+   -lt ： 小于
+   -le ： 小于等于
+
+• 字符串比对
+       == : 相等为真
+       !=  : 不相等为真
+
+[root@server0 /]# [  abc  ==  bcd  ]
+[root@server0 /]#  echo $?
+
+[root@server0 /]# [  abc  !=  bcd  ]
+[root@server0 /]#  echo $?
+
+[root@server0 /]# [  $USER  ==  root  ]
+[root@server0 /]#  echo $?
+
+##############################################################
+
+if选择结构
+
+if双分支处理
+ 
+ if   [条件测试];then
+   命令序列xx
+ else
+   命令序列yy
+ fi
+
+
+
+[root@server0 /]# vim /root/if01.sh
+ #!/bin/bash
+ if   [   $1  -eq   1   ];then
+  echo   hello
+ else
+  echo   hi
+ fi
+
+[root@server0 /]# /root/if01.sh  1
+
+[root@server0 /]# /root/if01.sh  2
+
+########################################################
+请书写一个随机数抽奖脚本
+
+    计算机  产生一个10以内的随机数字
+    用户 输入一个10以内的随机数字
+
+    如果 用户 输入 与 计算机 产生的数字 ，相等 则 中奖了
+    如果 用户 输入 与 计算机 产生的数字 ，不相等 则 谢谢惠顾
+
+
+[root@server0 /]# vim /root/if02.sh 
+ #!/bin/bash
+ read -p  '请输入一个10以内的随机数字:'    num01
+
+ num02=$[  $RANDOM  %  10  ]
+
+ if  [  $num01  -eq  $num02  ];then
+   echo  恭喜您中奖了，您猜对了
+ else
+   echo  恭喜您，谢谢惠顾
+   echo  正确的数字为 $num02
+ fi
+
+[root@server0 /]# /root/if02.sh 
+
+##########################################################
+ 请书写一个脚本：
+
+     判断用户输入一个IP地址，本机是否能与之通信
+
+       能则输出  可以通信
+      不能则输出 不可以通信
+
+
+[root@server0 /]# vim   /root/if03.sh
+#!/bin/bash
+ read  -p  '请输入您要测试的ip地址:'    ip
+
+ ping  -c  2  $ip  &>  /dev/null
+
+ if  [  $?  -eq  0  ];then
+   echo  可以通信
+ else
+   echo  不可以通信
+ fi
+
+###############################################################
+
+if多分支处理
+
+	if  [条件测试1];then
+	   命令序列xx
+	elif  [条件测试2];then
+	   命令序列yy
+	elif  [条件测试3];then
+	   命令序列aa
+	else
+	   命令序列zz
+	fi
+
+###################################################
+   学习成绩
+
+   用户输入考试成绩 ，  
+            大于等于85   输出  优秀
+            大于等于70   输出  良好
+            大于等于60   输出  合格
+
+            以上条件均不满足   输出  在牛的肖邦，也弹不出哥的悲伤
+
+[root@server0 /]# vim  /root/if04.sh
+#!/bin/bash
+ read  -p   '请输入您的成绩:'      num
+
+ if  [  $num  -ge  85  ];then
+   echo  优秀
+ elif  [  $num  -ge  70  ];then
+   echo  良好
+ elif  [  $num  -ge  60  ];then
+  echo  合格
+ else
+  echo  再牛的肖邦，也弹不出哥的悲伤
+ fi
+
+###########################################################
+案例4:编写一个判断脚本
+在 server0 上创建 /root/foo.sh 脚本
+ 1)当运行/root/foo.sh  redhat,输出为fedora
+ 2)当运行/root/foo.sh  fedora,输出为redhat
+ 3)当没有任何参数或者参数不是 redhat 或者fedora时,
+    其错误输出产生以下信息: 
+   /root/foo.sh redhat|fedora
+
+
+[root@server0 /]# vim /root/foo.sh
+#!/bin/bash
+ if  [  $#  -eq  0  ];then                     #当参数个数为0 
+     echo '/root/foo.sh redhat|fedora'  >&2
+     exit 2 
+ elif [  $1  ==   redhat ];then
+   echo fedora
+ elif [  $1  ==  fedora ];then
+   echo redhat 
+ else
+    echo '/root/foo.sh redhat|fedora'   >&2
+    exit 3
+ fi
+
+#################################################################
+
+
+扩展案例02：
+ 请编写脚本/opt/useradd.sh，
+  实现的功能判断一个用户是否存在，存在则输出“用户已存在”，不存在则创建用户，并且输出该用户在/etc/passwd该行信息？
+
+ 提示：
+           利用read -p将用户输入的内容存放在变量user中，
+           在利用id命令判断变量user的值，是否能够显示用户信息
+           利用 $? 与 0比较，如果相等则用户存在，如果不等用户不存在
+
+[root@server0 ~]# cat /opt/useradd.sh
+ #!/bin/bash
+ read  -p   '请输入您要测试的用户:'   user
+ id $user  &>  /dev/null
+ if [  $?  -eq  0  ];then
+  echo  用户已存在
+ else
+  useradd $user
+  echo  $user用户创建成功
+  grep  $user  /etc/passwd
+ fi
+
+
+扩展案例01：
+  使用3个read读取用户输入的3个整数，脚本按照大小排序依次输出3个数字？
+
+ 提示：read –p 设置3个变量a,b,c
+ a和b对比大小，如果a小就不做任何处理
+ 如果a大，就把a和b的值对调
+ 这样做是确保a里存的是小的值，b里存的是大的值。
+ b和c对比大小，如果b小就不做特殊处理
+ 如果b大，就把b和c对调
+ 这样做确保b里存小的值，c里存大的值
+ 最后输出a,b,c
+
+     
+
+              让变量a永远储存三个数最小的
+              让变量c永远储存三个数最大的
+[root@server0 ~]# cat  /root/num.sh 
+#!/bin/bash
+ read  -p  '请输入第一个数字:'   a
+ read  -p  '请输入第二个数字:'   b
+ read  -p  '请输入第三个数字:'   c
+
+  if  [ $a -gt $b ];then
+          tmp=$a
+          a=$b
+          b=$tmp
+  fi
+
+  if  [ $a -gt $c ];then
+         num=$a
+         a=$c
+         c=$num
+  fi
+
+  if  [ $b -gt $c ];then
+      nsd=$b
+      b=$c
+      c=$nsd
+  fi
+  echo  $a----$b----$c
+
+##################################################################
+
+for循环处理
+
+ for  变量名  in  值列表
+   do
+      命令序列
+   done
+
+
+
+
+
+[root@server0 ~]# cat  /root/for.sh
+ #!/bin/bash
+ for i  in  zhangsan  lisi   wangwu   dc  haha   xixi   duanwu  zhongqiu
+ do
+   useradd  $i  &>  /dev/null
+   echo  $i创建成功
+ done
+
+
+[root@server0 ~]# cat  /root/for.sh
+ #!/bin/bash
+ for i  in  $(cat  /root/tarena.txt)
+ do
+   useradd  $i  &>  /dev/null
+   echo  $i创建成功
+ done
+
+#############################################################
+案例5:编写一个批量添加用户脚本
+在 server0 上创建 /root/batchusers 脚本
+1)此脚本要求提供用户名列表文件作为参数
+[root@server0 ~]# cat /root/tarena.txt
+
+2)如果没有提供参数,此脚本应该给出提示 
+Usage: /root/batchusers,退出并返回相应值
+
+3)如果提供一个不存在的文件,此脚本应该给出提
+示 Input file not found,退出并返回相应值
+
+4)新用户的登录Shell为 /bin/false,无需设置密码
+
+[root@server0 ~]# cat /root/tarena.txt  #书写一个用户名列表文件          
+
+[root@server0 ~]# vim /root/batchusers
+#!/bin/bash
+if [ $# -eq 0 ];then                      #判断是否输入参数
+ echo 'Usage: /root/batchusers' >&2   
+ exit 2
+elif [ -f $1  ];then                      #判断参数是否存在
+
+ for  i  in  $(cat $1)
+ do
+  useradd -s /bin/false $i &> /dev/null
+  echo $i 创建成功
+ done
+
+else
+ echo  Input file not found  >&2      #将正确输出改变性质为错误输出
+ exit 3
+fi
+
+[root@server0 ~]#  /root/batchusers  /root/tarena.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

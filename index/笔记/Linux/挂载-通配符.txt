@@ -1,0 +1,503 @@
+#########################################################
+• Linux命令
+  – 用来实现某一类功能的指令或程序
+  – 命令的执行依赖于解释器(例如:/bin/bash)
+     默认的解释器程序：/bin/bash
+
+绿色：可以执行的程序
+
+
+  原因： 提示 bash: firefox: 未找到命令...
+
+               1.命令有误
+               2.该命令没有安装
+
+  poweroff-------> 解释器 --------> 内核 --------> 硬件
+
+    Shell: 解释器
+
+#############################################################
+
+• 基本用法
+– 命令字    [选项]...     [参数1] [参数2]...
+
+
+• 快捷键
+– Ctrl + c :结束正在运行的命令
+– Esc+. :粘贴上一个命令的参数
+– Ctrl + l :清空整个屏幕
+
+– Ctrl + u:清空至行首
+– Ctrl + w:往回删除一个单词(以空格界定)
+
+
+[root@A ~]# ls  /etc/sysconfig/network-scripts/ifcfg-eth0 
+[root@A ~]# ls  /et(tab)/sysco(tab)/netw(tab)-(tab)/ifc(tab)-e(tab)
+
+[root@A ~]# ls  -l   Esc+.
+
+[root@A ~]# cat     Esc+.
+
+[root@A ~]# cat  -n   Esc+.
+
+[root@A ~]# head  -2  Esc+.
+
+[root@A ~]# less   Esc+.
+################################################################
+• 使用mount命令
+– 格式:mount 设备路径    挂载点目录
+
+
+ 访问光盘的内容：
+
+     Windows
+           光盘--------->光驱设备------> CD驱动器（访问点）
+
+     Linux
+           光盘文件--------->光驱设备---------> 目录  访问点(手工配置)
+
+
+       煤矿----->洞口
+
+青色：快捷方式
+
+ 1.图形将光盘放入光驱设备
+
+ 2.查看光驱设备
+ [root@A ~]# ls  /dev/cdrom 
+ [root@A ~]# ls -l  /dev/cdrom
+ lrwxrwxrwx. 1 root root 3 2月   1 10:34 /dev/cdrom -> sr0
+
+  3.访问光驱设备,可以提供设备的访问点
+
+ [root@A ~]# mkdir  /dvd
+
+ [root@A ~]# mount  /dev/cdrom   /dvd   #将/dev/cdrom设备的访问点设置为/dvd
+  mount: /dev/sr0 写保护，将以只读方式挂载
+
+ [root@A ~]# ls /dvd
+ [root@A ~]# ls /dvd/Packages
+
+• 使用umount命令
+– 格式:umount  挂载点目录
+
+[root@A ~]# umount  /dvd
+[root@A ~]# ls  /dvd
+
+[root@A ~]# mount  /dev/cdrom  /mnt
+[root@A ~]# ls  /mnt
+
+  在Linux中访问设备资源内容，必须通过目录作为访问点进行访问
+
+#################################################################
+注意事项：
+    1.进行挂载时，挂载点目录必须要存在
+    2.进行挂载时，挂载点目录不要是根目录以下已经存在的目录（建议）
+    3.卸载，当前确认没有任何人在访问点目录内
+
+ [root@A dvd]# umount /dvd
+  umount: /dvd：目标忙。
+         (有些情况下通过 lsof(8) 或 fuser(1) 可以
+          找到有关使用该设备的进程的有用信息)
+
+###############################################################
+目录和文件管理
+
+• cd — Change Directory
+ – 用途:切换工作目录
+ – 格式:cd  [目标文件夹位置]
+
+  ~user表示用户user的家目录
+
+[root@A lisi]# cd ~root           #切换到root用户家目录
+[root@A ~]# pwd
+
+[root@A ~]# useradd  harry        #创建用户harry
+[root@A ~]# cd ~harry             #切换到harry用户家目录
+[root@A harry]# pwd
+
+[root@A harry]# useradd  tom      #创建用户tom
+[root@A harry]# cd ~tom           #切换到tom用户家目录
+[root@A tom]# pwd
+
+[root@A tom]# ls  /home
+
+   /home:存放所有普通用户的家目录
+
+
+• ls — List
+– 格式:ls [选项]... [目录或文件名]
+
+• 常用命令选项
+  – -l:以长格式显示
+  – -d:显示目录本身(而不是内容)的属性
+  – -h:提供易读的容量单位(K、M等)
+  – -A:包括名称以 . 开头的隐藏文档
+
+
+[root@A tom]#  ls -l  /root         #显示目录内容子文档的详细属性
+
+[root@A tom]#  ls -ld  /root        #显示目录本身的详细属性
+
+[root@A tom]#  ls -l  /boot
+
+[root@A tom]#  ls -lh  /boot      #显示目录内容的详细属性加上 易读的大小单位 
+
+[root@A tom]#  ls -A   /root
+
+##################################################################
+  命令的别名：简化复杂命令的执行
+
+    alias   别名='真正执行的命令'
+    alias
+                                          
+   删除别名
+    unalias  别名 
+ 
+[root@A ~]# alias  hn='hostname'     #定义别名
+[root@A ~]# hn
+
+[root@A ~]# alias   myls='ls  -lh'   #定义别名
+[root@A ~]# myls /root
+
+[root@A ~]# alias   #显示当前所有生效的别名
+
+[root@A ~]# unalias  hn   #删除别名hn
+
+[root@A ~]# hn            #命令没有找到
+
+###############################################################
+ 通配符
+
+• 针对不确定的文档名称,以特殊字符表示
+  – *:任意多个任意字符
+  – ?:单个字符
+
+[root@A ~]# ls /dev/tty*         #匹配/dev目录下tty开头的后面有任意多个
+
+显示 /etc/目录下所有以 .conf 结尾？
+[root@A ~]# ls /etc/*.conf       #匹配/etc目录下.conf结尾
+
+[root@A ~]# ls /etc/*tab          #匹配/etc目录下.tab作为结尾的
+
+[root@A ~]# ls /dev/tty?          #匹配/dev目录下tty开头后面有一个字符的
+[root@A ~]# ls /dev/tty??         #匹配/dev目录下tty开头后面有两个字符的
+
+• 针对不确定的文档名称,以特殊字符表示
+– [a-z]:多个字符或连续范围中的一个,若无则忽略
+– {a,min,xy}:多组不同的字符串,全匹配
+
+[root@A ~]# ls /dev/tty[1-8]
+[root@A ~]# ls /dev/tty[3-6]
+
+[root@A ~]# ls /dev/tty{1,3,7,9,18}
+
+[root@A ~]# ls /dev/tty{S0,S1}
+
+##################################################################
+  请利用通配符   显示/dev/目录下  tty20 至  tty30 ？
+
+ [root@A ~]# ls  /dev/tty2[0-9]  /dev/tty30 
+
+ [root@A ~]# ls  /dev/tty{2[0-9],30}
+
+#################################################################
+
+• mkdir — Make Directory
+– 格式:mkdir [-p] [/路径/]目录名...
+
+      mkdir -p ：创建多层的目录，当父目录没有时创建父目录
+      ls  -R 递归显示：目录本身的内容 所有子目录的内容 依次展开
+
+[root@A ~]# mkdir -p /opt/aa/bb/cc/dd
+[root@A ~]# ls -R  /opt/aa
+
+
+[root@A ~]# mkdir -p  /vod/movie/carto
+[root@A ~]# ls -R  /vod/
+
+################################################################
+ vim文本编辑器
+
+    命令模式      输入模式（插入模式）     末行模式
+
+
+• vim文本编辑器
+– 格式:vim [[/目录/]文件名]
+– 若目标文件不存在,则新建空文件并编辑
+– 若目标文件已存在,则打开此文件并编辑
+
+ [root@A ~]#  vim   /opt/1.txt 
+
+                         按键盘  i 进入输入模式
+                     命-----------------------------------> 输入模式（按Esc键返回到命令模式）
+		     令
+	             模
+	             式----------------------------------->末行模式 (按Esc键返回到命令模式）
+                          输入  :  进入末行模式
+
+
+            末行模式    输入  ：wq   代表保存并退出
+	                    输入  ：q!   代表强制不保存并退出
+
+
+##################################################################
+
+• rm — Remove
+– 格式:rm [选项]... 文件或目录...
+
+• 常用命令选项
+– -r、-f:递归删除(含目录)、强制删除
+
+[root@A ~]# rm  -rf  /opt/*
+[root@A ~]# ls /opt/
+
+[root@A ~]# touch /opt/1.txt
+[root@A ~]# mkdir /opt/test01
+
+[root@A ~]# ls /opt/
+
+[root@A ~]# rm  -rf  /opt/*
+[root@A ~]# ls  /opt/
+
+#######################################################
+mv 移动/改名
+• mv — Move
+– 格式: mv   原文件...      目标路径
+
+
+[root@A ~]# rm -rf  /opt/*
+[root@A ~]# touch  /opt/1.txt
+[root@A ~]# mkdir  /opt/nsd02
+[root@A ~]# ls /opt/
+1.txt  nsd02
+[root@A ~]# mv /opt/1.txt  /opt/nsd02
+[root@A ~]# ls /opt/
+nsd02
+[root@A ~]# ls /opt/nsd02
+1.txt
+
+  重命名操作： 路径不变的移动	
+[root@A ~]# ls /opt/
+
+[root@A ~]# mv /opt/nsd02/  /opt/student
+[root@A ~]# ls /opt/
+
+[root@A ~]# mv /opt/student/  /opt/dc
+[root@A ~]# ls /opt/
+#######################################################
+
+• cp — Copy
+– 格式:cp [选项]... 原文件...     目标路径
+
+• 常用命令选项
+– -r:递归,复制目录时必须有此选项
+
+[root@A ~]# rm -rf /opt/*
+[root@A ~]# ls /opt/
+[root@A ~]# cp /etc/redhat-release  /opt/
+[root@A ~]# ls /opt/
+
+[root@A ~]# cp /etc/passwd   /opt/
+[root@A ~]# ls /opt/
+
+[root@A ~]# cp -r /home/  /opt/
+[root@A ~]# ls /opt/
+
+   当cp出现两个以上的参数时，永远会将最后一个参数作为目标目录，其它作为源
+
+[root@A ~]# cp -r  /etc/fstab  /boot/    /opt/
+[root@A ~]# ls /opt/
+
+   cp支持通配符
+[root@A ~]# ls /boot/vm*
+[root@A ~]# cp  /boot/vm*     /opt/
+[root@A ~]# ls  /opt/
+
+   cp命令与 点 连用
+[root@A ~]# cd /etc/sysconfig/network-scripts/
+[root@A network-scripts]# ls
+
+[root@A network-scripts]# cp  /etc/passwd    .
+[root@A network-scripts]# ls
+
+[root@A network-scripts]# cd  /opt
+[root@A opt]# pwd
+[root@A opt]# cp  /etc/hosts  .
+[root@A opt]# ls
+
+   cp命令可以  重新命名  目标路径文档的名称
+[root@A opt]# rm -rf /opt/*
+[root@A opt]# cp /etc/passwd  /opt/
+[root@A opt]# ls /opt/
+
+[root@A opt]# cp /etc/passwd  /opt/1.txt
+[root@A opt]# ls /opt/
+
+[root@A opt]# cp /etc/redhat-release  /opt/haha.txt
+[root@A opt]# ls /opt/
+
+[root@A opt]# cat /opt/haha.txt 
+
+########################################################
+案例五:复制、删除、移动
+  1. 在/opt创建子目录 dir1               
+[root@A ～]# mkdir /opt/dir1
+
+  2. 将文件夹 /boot/grub2/ 复制到目录/opt/dir1下
+[root@A ～]# cp  -r /boot/grub2   /opt/dir1
+[root@A ～]# ls /opt
+
+  3. 将目录 /root/ 下以 .cfg 结尾的文件复制到/opt/dir1下
+[root@A ～]# ls /root/*.cfg
+[root@A ～]# cp /root/*.cfg   /opt/dir1
+[root@A ～]# ls /opt/dir1
+
+  4. 将文件 /etc/redhat-release复制到 /root/ 下,同时改名为 version.txt
+[root@A ～]# cp /etc/redhat-release   /root/version.txt
+[root@A ～]# ls /root
+
+  5. 将文件 /root/version.txt 移动到/opt/dir1目录下
+[root@A ～]# mv /root/version.txt   /opt/dir1
+  
+  6. 删除 /opt/dir1目录下的 grub2 子目录
+[root@A ～]# rm -rf /opt/dir1/grub2
+
+#############################################################
+案例六:复制、删除、移动
+1. 在当前目录下创建一个子目录 dir1
+2. 将文件夹 /boot/grub2/ 复制到目录dir1下
+3. 将目录 /root/ 下以 .cfg 结尾的文件复制到dir1下
+4. 将文件 /etc/redhat-release复制到 /root/ 下,同时
+改名为 version.txt
+5. 将文件 /root/version.txt 移动到dir1目录下
+6. 删除 dir1 目录下的 grub2 子目录
+
+###########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

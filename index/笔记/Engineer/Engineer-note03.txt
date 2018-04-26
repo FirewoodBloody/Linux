@@ -1,0 +1,516 @@
+
+
+
+
+
+
+
+
+
+
+系统安全保护
+• Security-Enhanced Linux
+– 美国NSA国家安全局主导开发,一套增强Linux系统安
+全的强制访问控制体系
+– 集成到Linux内核(2.6及以上)中运行
+– RHEL7基于SELinux体系针对用户、进程、目录和文件
+提供了预设的保护策略,以及管理工具
+
+• SELinux的运行模式
+– enforcing(强制)、permissive(宽松)
+– disabled(彻底禁用)
+
+   无论那种模式，想要变成disabled(彻底禁用)，重起系统才可以
+
+• 切换运行模式
+– 临时切换:setenforce 1|0
+
+– 固定配置: /etc/selinux/config 文件
+
+
+虚拟机server0:
+[root@server0 ~]# getenforce       #查看当前SELinux运行模式
+[root@server0 ~]# setenforce 0     #修改当前SELinux运行模式为permissive
+[root@server0 ~]# getenforce 
+
+[root@server0 ~]# vim /etc/selinux/config 
+SELINUX=permissive
+
+虚拟机desktop0:
+[root@desktop0 ~]# getenforce     #查看当前SELinux运行模式
+[root@desktop0 ~]# setenforce 0   #修改当前SELinux运行模式为permissive
+[root@desktop0 ~]# getenforce 
+
+[root@desktop0 ~]# vim /etc/selinux/config 
+SELINUX=permissive
+
+##################################################################
+防火墙策略管理
+
+  作用：隔离
+
+  软件防火墙
+########################################
+     
+    http:超文本传输协议
+
+   Apache:开源软件基金会   
+
+搭建基本的Web
+
+  服务端  ： server0.example.com
+    1.安装服务端软件 httpd  
+    2.启动httpd服务，设置为开机自起的服务
+  [root@server0 ~]# systemctl restart httpd
+  [root@server0 ~]# systemctl enable httpd
+    3.书写自己的主页
+         默认网页文件路径：/var/www/html
+         默认网页文件名字 : index.html
+         默认书写网页内容的语言： html
+  [root@server0 ~]# vim  /var/www/html/index.html
+  <marquee><font color=red><h1>NSD1801
+    滚动            字体颜色           最大标题字体
+
+  客户端   :  server0.example.com
+  
+  [root@server0 ~]# firefox 127.0.0.1    #访问本机服务
+ 
+
+搭建基本的FTP
+    
+  FTP:文件传输协议
+
+  服务端  ： server0.example.com
+    1.安装服务端软件 vsftpd  
+    2.启动vsftpd服务，设置为开机自起的服务
+    3. 默认共享路径：/var/ftp
+
+  客户端   :  server0.example.com
+
+  [root@server0 ~]# firefox ftp://127.0.0.1    #访问本机服务
+
+################################################################
+Linux软件防火墙
+
+• 系统服务:firewalld
+• 管理工具:firewall-cmd、firewall-config
+
+
+• 根据所在的网络场所区分,预设保护规则集
+ – public:仅允许访问本机的sshd等少数几个服务
+ – trusted:允许任何访问
+ – block:阻塞任何来访请求
+ – drop:丢弃任何来访的数据包
+
+
+   规则匹配：原则时  匹配及停止
+#############################################################
+
+防火墙判定进入哪一个区域的规则：
+
+  1.查看客户端请求数据包中，源IP地址，查看自己所有的区域，哪一个区域，有该源IP地址的策略，则进入哪一个区域
+
+
+  2.如果 规则1 不符合，则进入默认区域
+
+
+ 宽松方式1：默认区域为trusted，将想要拒绝的源IP地址放入到block或drop
+
+ 严格方式2：默认区域为block或drop，将想要允许的源IP地址放入到trusted
+
+##############################################################
+预设安全区域
+• 根据所在的网络场所区分,预设保护规则集
+  – public : 仅允许访问本机的sshd等少数几个服务
+  – trusted : 允许任何访问
+  – block : 阻塞任何来访请求 (明确拒绝,客户端会接收到拒绝)
+  – drop : 丢弃任何来访的数据包 (直接丢弃，节省服务器的资源)
+
+虚拟机Server0:
+[root@server0 ~]# firewall-cmd --get-default-zone       #查看默认区域
+[root@server0 ~]# firewall-cmd --zone=public --list-all  #查看区域规则
+虚拟机desktop0:
+[root@desktop0 ~]#  ping -c 2  172.25.0.11  #可以通信，有回应
+
+
+虚拟机Server0:
+[root@server0 ~]# firewall-cmd --set-default-zone=block  #修改默认区域
+[root@server0 ~]# firewall-cmd --get-default-zone       #查看默认区域
+虚拟机desktop0:
+[root@desktop0 ~]#  ping -c 2  172.25.0.11  #不可以通信，有回应
+
+
+虚拟机Server0:
+[root@server0 ~]# firewall-cmd --set-default-zone=drop  #修改默认区域
+[root@server0 ~]# firewall-cmd --get-default-zone      #查看默认区域
+虚拟机desktop0:
+[root@desktop0 ~]#  ping -c 2  172.25.0.11  #不可以通信，没有有回应
+
+################################################################
+防火墙对于服务控制
+
+虚拟机Server0:
+# firewall-cmd   --set-default-zone=public         #修改默认区域
+# firewall-cmd   --zone=public   --list-all        #查看public区域规则
+# firewall-cmd   --zone=public --add-service=ftp   #为区域中添加httpd服务
+# firewall-cmd   --zone=public   --list-all        #查看public区域规则
+
+虚拟机desktop0:
+[root@desktop0 ~]# firefox ftp://172.25.0.11   #可以访问 
+[root@desktop0 ~]# firefox  172.25.0.11        #不可以访问 
+
+虚拟机Server0:
+# firewall-cmd   --zone=public   --list-all 
+# firewall-cmd   --zone=public   --add-service=http #为区域中添加ftp服务
+# firewall-cmd   --zone=public   --list-all 
+
+虚拟机desktop0:
+[root@desktop0 ~]# firefox  172.25.0.11   #可以访问 
+
+#################################################################
+防火墙永久配置
+
+  – 永久(permanent)
+
+虚拟机Server0:
+# firewall-cmd   --reload                    #重新加载防火墙配置
+# firewall-cmd   --zone=public   --list-all 
+
+# firewall-cmd  --permanent  --zone=public  --add-service=ftp
+# firewall-cmd  --permanent  --zone=public  --add-service=http
+
+# firewall-cmd   --reload 
+# firewall-cmd   --zone=public   --list-all 
+
+################################################################
+防火墙对源ip地址的控制
+
+   真机可以访问172.25.0.11的服务
+  desktop0虚拟机不能访问172.25.0.11主机的任何服务
+
+虚拟机Server0
+
+# firewall-cmd   --permanent  --zone=block  --add-source=172.25.0.10
+# firewall-cmd   --reload 
+
+# firewall-cmd   --zone=block --list-all 
+
+虚拟机desktop0
+
+# firefox  172.25.0.11    #访问失败
+
+真机访问测试-成功
+
+#############################################################
+  端口：数字 编号 标识进程或程序
+
+ IP地址作用：唯一标识网络中一个节点的地址
+
+
+   源IP地址  目标ip地址   数据      目标端口号
+
+
+   http :  默认端口80     FTP :  默认端口21
+
+
+########################################################
+端口转发
+
+ 
+  172.25.0.11:5423----》172.25.0.11（firewalld）----》172.25.0.11：80
+
+虚拟机Server0
+# firewall-cmd  --permanent --zone=block --remove-source=172.25.0.10
+# firewall-cmd  --reload 
+# firewall-cmd  --zone=block --list-all 
+
+
+# firewall-cmd  --permanent   --zone=public  
+--add-forward-port=port=5423:proto=tcp:toport=80 
+
+
+# firewall-cmd  --reload 
+# firewall-cmd  --zone=public  --list-all 
+
+
+虚拟机desktop0:
+# firefox 172.25.0.11:5423
+
+##################################################################
+配置用户环境 
+
+• 影响指定用户的 bash 解释环境
+– 用户家目录/.bashrc,每次开启 bash 终端时生效
+
+• 影响所有用户的 bash 解释环境
+– /etc/bashrc,每次开启 bash 终端时生效
+
+
+虚拟机Server0
+[root@server0 ~]# vim  /root/.bashrc
+  alias  hello='echo hello'
+
+[root@server0 ~]# vim  /home/student/.bashrc
+  alias  hi='echo hi'
+
+[root@server0 ~]# vim  /etc/bashrc     #全局所有用户都生效的配置文件
+  alias  abc='echo abc'
+
+在开一个新的终端
+[root@server0 ~]# hello     #执行成功 
+[root@server0 ~]# hi        #执行失败
+[root@server0 ~]# abc       #执行成功
+[root@server0 ~]# su - student
+[student@server0 ~]$ hello    #执行失败   
+[student@server0 ~]$ hi       #执行成功
+[student@server0 ~]$ abc      #执行成功
+[student@server0 ~]$ exit
+logout
+[root@server0 ~]#
+
+################################################################
+
+配置高级连接（聚合连接  网卡绑定   链路聚合）
+
+ 热备份(activebackup)连接冗余  (活跃状态   备份状态)
+
+
+              eth1  team0-slave            eth2  team0-slave   
+                                                      
+                      team0 虚拟网卡   master  192.168.1.1      
+
+
+制作网卡绑定
+
+ 1.制作虚拟网卡 team0, 参考  man  teamd.conf  全文查找/example  按n跳转匹配项 
+
+ # nmcli connection  add  type  team     
+   autoconnect  yes  con-name  team0  ifname  team0 
+   config  '{"runner": {"name": "activebackup"}}'
+
+ # nmcli connection 添加  类型为  team 的设备
+   每次开机自动启用       配置文件命名为  team0  网卡显示的名字为  team0
+  team0网卡内部成员工作模式为 '{"runner": {"name": "activebackup"}}' （热备）
+
+ # ifconfig
+
+ 2. 为 team0添加成员
+# nmcli connection add type team-slave  con-name team0-1 ifname eth1 master team0
+
+# nmcli connection add type team-slave  con-name team0-2 ifname eth2 master team0
+
+#      添加  类型为 team-slave 的设备  配置文件命名为  team0-1  网卡为eth1
+ 主设备为team0
+
+3.配置team0的ip地址与激活
+
+# nmcli  connection  modify  team0  ipv4.method  manual 
+ ipv4.addresses  192.168.1.1/24  connection.autoconnect  yes
+
+# nmcli connection up team0     #激活team0网卡
+# nmcli connection up team0-1   #激活team0-1成员
+# nmcli connection up team0-2   #激活team0-2成员
+
+################################################################
+
+如果错了：
+
+  1.删除
+[root@server0 ~]# nmcli connection delete team0
+[root@server0 ~]# nmcli connection delete team0-1
+[root@server0 ~]# nmcli connection delete team0-2
+  2.从新配置
+
+
+
+#############################################################
+专用于team测试查看的命令
+
+[root@server0 ~]# teamdctl  team0  state     #查看team0信息
+
+[root@server0 ~]# ifconfig  eth1   down       #禁用eth1网卡
+
+[root@server0 ~]# teamdctl  team0  state     #查看team0信息
+
+#############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,110 @@
+案例练习,准备:
+            rht-vmctl  reset  classroom
+            rht-vmctl  reset  server
+	        rht-vmctl  reset  desktop
+######################################################
+
+案例1：虚拟机Server上操作：复制、删除、移动及vim文本编辑器
+  1. 新建目录结构/nsd1801/test
+    [root@server0 ~]# mkdir -p /nsd1801/test
+
+  2. 在目录/nsd1801/test创建文件nsd.txt并写入内容 NSD  Student
+    [root@server0 ~]# echo NSD Student > /nsd1801/test/nsd.txt
+    [root@server0 ~]# cat /nsd1801/test/nsd.txt
+
+  3. 将/nsd1801/test/nsd.txt文件复制到/root目录下，同时 改名为 tedu.txt
+    [root@www ~]# cp /nsd1801/test/nsd.txt /root/tedu.txt
+
+  4. 利用vim 修改文件/etc/hostname将其原有内容全部删除，写入新的内容为server0.example.com
+    [root@www ~]# vim /etc/hostname
+    [root@server0 ~]# echo server0.example.com > /etc/hostname 
+
+
+  5. 将/etc/passwd 、/etc/resolv.conf、/etc/hostname 同时拷贝到/nsd1801/test/目录下
+    [root@www ~]# cp -r /etc/passwd /etc/resolv.conf  /etc/hostname /nsd1801/test/
+
+  6. 将文件 /nsd1801/	test/hostname 重改名为 hn.txt
+    [root@www ~]# mv /nsd1801/test/hostname /nsd1801/test/hn.txt
+  7. 创建目录结构/nsd1801/test/kernel
+    [root@www ~]# mkdir -p /nsd1801/test/kernel
+
+  7. 将目录 /boot内容中以 vm 开头的 复制到/nsd1801/test/kernel目录下 
+    [root@www ~]# find /boot -name 'vm*' -exec cp {} /nsd1801/test/kernel/ \;
+
+
+
+
+案例2：虚拟机Server上操作：find
+ – 利用find查找所有用户 student 拥有的必须是文件,把它们拷贝到 /root/findfiles/ 文件夹中
+    [root@server0 ~]# find / -user student -exec cp {} /root/findfiles/ \;
+
+ – 利用find查找/boot目录下大于10M并且必须是文件，拷贝到/opt
+   [root@server0 ~]# find /boot -size +10M -type f -exec cp {} /opt \;
+
+ – 利用find查找/boot/ 目录下以 vm 开头且必须是文件，拷贝到/opt
+   [root@server0 ~]# find /boot -name 'vm*'  -type f -exec cp {} /opt/ \;
+
+ – 利用find查找/boot/ 目录下为快捷方式
+   [root@server0 ~]# find /boot/ -type l 
+
+ – 利用find查找/etc 目录下，以 tab 作为开头的 必须是文件
+   [root@server0 ~]# find  /etc/ -name 'tab*' -type f
+
+ – 利用find查找/etc 目录下，以 tab 作为结尾的 必须是文件
+   [root@server0 ~]# find  /etc/ -name '*tab' -type f
+
+案例3：虚拟机Server上操作：搭建Yum仓库
+
+为 server0 指定可用的 yum 软件源
+– YUM软件库的地址为 http://classroom.example.com/content/rhel7.0/x86_64/dvd
+– 将此配置为虚拟机 server0 的默认软件仓库
+– 确认可用的仓库列表
+– 利用yum仓库安装sssd软件
+– 利用yum仓库安装httpd软件
+
+
+
+案例4:虚拟机Server上操作：查找并提取文件内容
+1.在文件 /usr/share/dict/words 中查找到所有包含字符串 seismic 的行,将输出信息,写入到/opt/nsd.txt
+[root@server0 ~]# grep seismic /usr/share/dict/words  >> /opt/nsd.txt
+
+2.查看内核版本，将显示结果重定向到/root/version.txt
+[root@server0 ~]# uname -r >> /root/version.txt
+
+3.查看红帽系统版本，将显示结果追加到/root/version.txt
+[root@server0 ~]# cat /etc/redhat-release >> /root/version.txt
+
+4.查看主机名将显示结果追加到/root/version.txt
+[root@server0 ~]# hostname >> /root/version.txt
+
+4.将/etc/fstab文件中以UUID开头的信息，写入到/root/fstab.txt
+[root@server0 ~]# grep '^UUID' /etc/fstab >> /root/fstab.txt
+
+5.提取/etc/passwd以bash结尾的行，将其信息写入/opt/pass.txt
+[root@server0 ~]# grep 'bash$' /etc/passwd >/opt/pass.txt
+
+
+
+
+?案例5:为虚拟机 server0 配置以下静态地址参数
+– 主机名:server0.example.com
+– IP地址:172.25.0.120
+– 子网掩码:255.255.255.0
+– 默认网关:172.25.0.254
+– DNS服务器:172.25.254.254
+
+
+[root@server0 ~]# nmcli connection modify 'System eth0' ipv4.method manual ipv4.addresses '172.25.0.11/24 172.25.0.254' ipv4.dns '172.25.254.254' connection.autoconnect yes
+
+
+DNS配置文件：/etc/resolv.conf
+
+
+
+
+
+
+
+
+
+

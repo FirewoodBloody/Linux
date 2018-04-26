@@ -1,0 +1,79 @@
+ 1. Linux目录结构中“/”与“/dev”主要作用？
+         / ：Linux系统的起点（所有的数据都在此目录下）
+         /dev ： 设备相关的数据
+
+ 2. Linux中磁盘的表示，第三块SCSI磁盘的第二个分区如何表示？
+                   /dev/sdc2           
+
+ 3. Linux中常见的文件系统都有哪些？
+           ext4   xfs  swap  
+
+ 4. Linux中图形伪字符终端的提示符构成？
+               [用户名@主机名  当前位置 ] #
+               [用户名@主机名  当前位置 ] $   
+
+ 5. Linux中查看文本文件命令是？
+              cat
+
+ 6. Linux中查看目录内容的命令是？
+             ls
+
+ 7. Linux中查看主机名的命令是？
+            hostname
+
+ 8. Linux中查看IP地址的命令是？
+           ifconfig
+
+ 9. Linux中关机命令是?
+              poweroff
+
+
+ 10.Linux中重启的命令是？
+           reboot
+
+ 11.Linux中切换到/dev目录的命令是？
+            cd  /dev
+
+
+ 12.Linux中显示当前位置的命令是？
+		pwd
+
+
+ 13.Linux中显示/root目录内容详细属性怎么实现？
+		ls  -l   /root
+
+
+ 14.Linux中显示当前主机的内核版本的命令？
+             uname  -r
+
+
+ 15.Linux中查看CPU信息命令是？
+           lscpu
+
+
+ 16.Linux中查看内存信息命令是？
+		 cat  /proc/meminfo
+
+
+ 17.Linux中查看/boot目录内容如何操作？
+             ls  /boot
+
+ 18.Linux中查看/etc/passwd文件前两行如何操作？
+		  head  -2  /etc/passwd
+
+ 19.Linux中查看/etc/passwd/中包含root的行，如何操作？
+           grep  root  /etc/passwd
+
+ 20.Linux中查看/etc/passwd/后两行，如何操作？
+		  tail  -2  /etc/passwd
+
+
+
+
+
+
+
+
+
+
+

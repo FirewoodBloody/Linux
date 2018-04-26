@@ -1,0 +1,234 @@
+案例练习,准备:
+            rht-vmctl  reset  classroom
+            rht-vmctl  reset  server
+	    rht-vmctl  reset  desktop
+######################################################
+
+?案例1:为虚拟机 server 配置以下静态地址参数
+– 主机名:server0.example.com
+– IP地址:172.25.0.11
+– 子网掩码:255.255.255.0
+– 默认网关:172.25.0.254
+– DNS服务器:172.25.254.254
+[root@server0 ~]# nmcli connection modify 'System eth0' ipv4.method manual ipv4.addresses '172.25.0.11/24 172.25.0.245' connection.autoconnect yes 
+[root@server0 ~]# echo nameserver0 172.25.245.245 >> /etc/resolv.conf 
+[root@server0 ~]# nslookup server0.example.com 
+Server:		172.25.254.254
+Address:	172.25.254.254#53
+
+
+
+
+案例2：复制、粘贴、移动
+ 以root用户新建/example/目录，在此目录下新建nsd.txt文件，并进一步完成下列操作
+[root@server0 ~]# mkdir /example
+[root@server0 ~]# touch /example/nsd.txt
+
+
+ 1）将“I love Study”写入到文件nsd.txt 
+[root@server0 ~]# echo I love Study >> /example/nsd.txt/
+
+ 2）将nsd.txt重命名为mylove.txt
+[root@server0 ~]# mv /example/nsd.txt  /example/mylove.txt
+
+ 3）将/etc/passwd、/boot、/etc/group同时拷贝到/example/目录下
+[root@server0 ~]# cp /etc/passwd /boot/ /etc/group /example/
+cp: 略过目录"/boot/"
+
+ 4）将ifconfig命令的前两行内容，追加写入mylove.txt
+[root@server0 ~]# ifconfig | head -2 >> /example/mylove.txt 
+
+ 5）将主机名永久配置文件，拷贝到/example/目录下
+[root@server0 ~]# cp /etc/hostname /example/
+
+ 6）将DNS永久配置文件，拷贝到/example/目录下
+[root@server0 ~]# cp /etc/resolv.conf  /example/
+
+ 7）将开机自动挂载配置文件，拷贝到/example/目录下
+[root@server0 ~]# cp /etc/fstab  /example/
+
+
+
+案例3:在server上操作,（MBR分区模式）规划分区
+ 添加一块80G的硬盘并规划分区：
+   划分2个10G的主分区；1个12G的主分区;1个20G的逻辑分区。
+   
+   
+
+案例4:在server上操作,分区使用
+
+1、案例3中新添加80G硬盘的第一个逻辑分区
+– 格式化成xfs文件系统，实现该分区开机自动挂载，挂载点为/mnt/xfs
+[root@server0 ~]# mkdir /mnt/xfs
+[root@server0 ~]# mkfs.xfs /dev/vdc5
+[root@server0 ~]# blkid
+/dev/vda1: UUID="9bf6b9f7-92ad-441b-848e-0257cbb883d1" TYPE="xfs" 
+/dev/vdc5: UUID="81141d95-e290-45c1-8066-4d6e5313c1b9" TYPE="xfs" 
+[root@server0 ~]# vim /etc/fstab
+          /dev/vdc5 /mnt/xfs xfs defaults 0 0 
+[root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+文件系统             容量  已用  可用 已用% 挂载点
+/dev/vda1        10G  3.0G  7.1G   30% /
+devtmpfs        906M     0  906M    0% /dev
+tmpfs           921M   80K  921M    1% /dev/shm
+tmpfs           921M   17M  904M    2% /run
+tmpfs           921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc5        20G   33M   20G    1% /mnt/xfs
+
+
+2、案例3中新添加80G硬盘的第一个主分区
+– 完成开机自动挂载，挂载点/mnt/mypart,文件系统为ext4
+[root@server0 ~]# mkdir /mnt/mypart
+[root@server0 ~]# mkfs.ext4 /dev/vdc1
+[root@server0 ~]# blkid
+/dev/vda1: UUID="9bf6b9f7-92ad-441b-848e-0257cbb883d1" TYPE="xfs" 
+/dev/vdc5: UUID="81141d95-e290-45c1-8066-4d6e5313c1b9" TYPE="xfs" 
+/dev/vdc1: UUID="4a97c080-a962-4f28-b114-a5d2bb7abee3" TYPE="ext4" 
+[root@server0 ~]# vim /etc/fstab 
+           /dev/vdc1 /mnt/mypart ext4 bafaults 0 0 
+[root@server0 ~]# mount -a
+文件系统              容量  已用  可用 已用% 挂载点
+/dev/vda1        10G  3.0G  7.1G   30% /
+devtmpfs        906M     0  906M    0% /dev
+tmpfs           921M   80K  921M    1% /dev/shm
+tmpfs           921M   17M  904M    2% /run
+tmpfs           921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc5        20G   33M   20G    1% /mnt/xfs
+/dev/vdc1       9.8G   37M  9.2G    1% /mnt/mypart
+
+
+
+案例5:虚拟机 server0操作，构建 LVM 存储
+
+– 新建一个名为 systemvg 的卷组 
+[root@server0 ~]# vgcreate systemvg /dev/vdc3
+
+– 在此卷组中创建一个名为 vo 的逻辑卷，大小为8G 
+[root@server0 ~]# lvcreate -L 8G -n vo systemvg
+
+– 将逻辑卷 vo 格式化为 xfs 文件系统 
+[root@server0 ~]# mkfs.xfs /dev/systemvg/vo
+
+– 将逻辑卷 vo 挂载到 /vo 目录，并在此目录下建立一个测试文件 votest.txt，内容为“I AM KING.” 
+[root@server0 ~]# mkdir /vo
+[root@server0 ~]# mount /dev/systemvg/vo /vo
+[root@server0 ~]# echo I AM KING >> /vo/votest.txt
+[root@server0 ~]# cat //vo/votest.txt
+           I AM KING
+
+
+
+– 实现逻辑卷vo开机自动挂载到/vo
+[root@server0 ~]# vim /etc/fstab 
+           UUID="59bad3bb-8862-42b4-9371-2f3b1c3dd1e7" /vo xfs defaults 0 0 
+[root@server0 ~]# umount /dev/systemvg/vo 
+[root@server0 ~]# df -h
+文件系统        容量  已用  可用 已用% 挂载点
+/dev/vda1        10G  3.0G  7.1G   30% /
+devtmpfs        906M     0  906M    0% /dev
+tmpfs           921M   80K  921M    1% /dev/shm
+tmpfs           921M   17M  904M    2% /run
+tmpfs           921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc5        20G   33M   20G    1% /mnt/xfs
+/dev/vdc1       9.8G   37M  9.2G    1% /mnt/mypart
+[root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+文件系统                         容量  已用  可用 已用% 挂载点
+/dev/vda1                 10G  3.0G  7.1G   30% /
+devtmpfs                 906M     0  906M    0% /dev
+tmpfs                    921M   80K  921M    1% /dev/shm
+tmpfs                    921M   17M  904M    2% /run
+tmpfs                    921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc5                 20G   33M   20G    1% /mnt/xfs
+/dev/vdc1                9.8G   37M  9.2G    1% /mnt/mypart
+/dev/mapper/systemvg-vo  8.0G   33M  8.0G    1% /vo
+
+
+
+
+案例6:虚拟机 server0操作，构建 LVM 存储(修改PE大小)
+– 新的逻辑卷命名为 database，其大小为50个PE的大小，属于 datastore 卷组 
+– 在 datastore 卷组中其PE的大小为1M
+– 使用 EXT4 文件系统对逻辑卷 database 格式化，此逻辑卷应该在开机时自动挂载到 /mnt/database 目录
+[root@server0 ~]# vgcreate datastore /dev/vdc6
+[root@server0 ~]# vgchange -s 1M datastore
+  Volume group "datastore" successfully changed
+[root@server0 ~]# vgdisplay datastore 
+  --- Volume group ---
+  VG Name               datastore
+  System ID             
+  Format                lvm2
+  Metadata Areas        1
+  Metadata Sequence No  2
+  VG Access             read/write
+  VG Status             resizable
+  MAX LV                0
+  Cur LV                0
+  Open LV               0
+  Max PV                0
+  Cur PV                1
+  Act PV                1
+  VG Size               48.00 GiB
+  PE Size               1.00 MiB
+  Total PE              49148
+  Alloc PE / Size       0 / 0   
+  Free  PE / Size       49148 / 48.00 GiB
+  VG UUID               GmRUxT-5PAS-Z4m1-XXnF-R5sn-Dcf4-txZxAA
+[root@server0 ~]# lvcreate -L 50M -n database datastore
+  Logical volume "database" created
+[root@server0 ~]# mkfs.ext4 /dev/datastore/database
+[root@server0 ~]# vim /etc/fstab 
+      /dev/datastore-database /mnt/database ext4 defaults 0 0 
+[root@server0 ~]# mount -a
+
+
+
+
+
+
+
+
+ 
+
+案例7: vim文本编辑器练习，命令模式下的基本操作（重点知识）
+
+ 1）将/etc/passwd的前20行，写入到文件/opt/pass20.txt 
+ 2）将/etc/shadow的前10行,追加写入到文件/opt/pass20.txt 
+
+ 2）利用/opt/pass20.txt，进项如下操作：
+    – 命令模式下移动光标：键盘上下左右键、Home键、End键
+    – 命令模式下行间跳转：到全文的第一行（1G或gg）、到全文的最后一行（G）、到全文的第10行（10G）
+    
+    – 命令模式下复制、粘贴：
+    	 复制1行（yy）、复制3行（3yy）
+    	 粘贴到当前行之后（小写p）
+
+    – 命令模式下删除：
+    	 删除单个字符（x）
+    	 删除到行首（d^）、删除到行尾（d$）
+    	 删除1行（dd）、删除3行（3dd）
+         
+    
+    – 命令模式下查找关键词： 
+    	 搜索（/word）切换结果（n、N）
+
+    – 补充：在命令模式下大写的C，可以删除光标之后，并且进入输入模式
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,161 @@
+案例练习,准备:
+            rht-vmctl  reset  classroom
+            rht-vmctl  reset  server
+	    rht-vmctl  reset  desktop
+######################################################
+
+案例1:为虚拟机 server 配置以下静态地址参数
+– 主机名:server0.example.com
+– IP地址:172.25.0.120
+– 子网掩码:255.255.255.0
+– 默认网关:172.25.0.254
+– DNS服务器:172.25.254.254
+   [root@server0 ~]# nmcli connection modify 'System eth0' ipv4.method  manual ipv4.addresses '172.25.0.120/24 172.25.0.254' connection.autoconnect yes
+   [root@server0 ~]# nmcli connection up 'System eth0'
+   [root@localhost ~]# echo nameserver 172.25.254.254 > /etc/resolv.conf
+   [root@localhost ~]# nslookup server.example.com  #DNS配置检测
+
+
+
+案例2:指定yum软件源
+为 server0 指定可用的 yum 软件源
+– YUM软件库的地址为 http://classroom.example.com/content/rhel7.0/x86_64/dvd
+– 将此配置为虚拟机 server0 的默认软件仓库
+– 确认可用的仓库列表
+– 利用yum仓库安装system-config-kickstart 
+   [root@localhost ~]# rm -rf /etc/yum.repos.d/*
+   [root@localhost ~]# vim /etc/yum.repos.d/nsd.repo
+         [rhel7]
+         name=rhel 7.0
+         baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd
+         enabled=1
+         gpgcheck=0
+   [root@localhost ~]# yum repolist 
+   [root@localhost ~]# yum -y install system-config-kickstart
+
+案例3:            基本用法
+    1）将当前主机的所有IP地址信息存入文件ipadd.txt
+     [root@localhost ~]# ifconfig > ipadd.txt
+
+    2）去掉空行显示ipadd.txt文件内容 
+     [root@localhost ~]# grep -v '^$' /root/ipadd.txt 
+
+    3）复制/etc/login.defs文件到当前目录下，改名为init.txt
+	a）提取init.txt文件里的有效配置（去除以#号开头，去除空行），保存为init2.txt
+     [root@localhost ~]# cp /etc/login.defs  init.txt
+     [root@localhost ~]# grep -v '^$' init.txt | grep '^#' > init2.txt
+
+
+
+
+案例4:tar制作/释放归档压缩包（zcf、ztf、zxf、jcf、jtf、jxf、cf、tf）
+    1）备份/boot、/home这两个文件夹，保存为boothome.tar.gz文件
+     [root@localhost ~]# tar -zPcf boothome.tar.gz /boot /home 
+
+    2）查看boothome.tar.gz文件内包含哪些内容 
+     [root@localhost ~]# tar -tf /root/boothome.tar.gz 
+
+    3）将boothome.tar.gz释放到文件夹/root/boothome/下
+     [root@localhost ~]#  tar -xf /root/boothome.tar.gz -C /root/boothome
+
+    4）备份/usr/sbin目录，保存为usrsbin.tar.bz2文件
+     [root@localhost ~]# tar jPcf usrsbin.tar.bz2 /usr/sbin
+
+    5）查看usrsbin.tar.bz2文件内包含哪些内容
+     [root@localhost ~]# tar -tf usrsbin.tar.bz2
+ 
+    6）将usrsbin.tar.bz2释放到/root/usrsbin/文件夹下
+     [root@localhost ~]# tar -xf usrsbin.tar.bz2 /root/usrsbin
+
+
+
+
+案例5：添加并测试用户账号
+    1）创建一个名为stu01的用户账号
+     [root@localhost ~]# useradd stu01
+
+    2）检查/etc/passwd、/etc/shadow文件的最后一行
+     [root@localhost ~]# tail -1 /etc/passwd
+     [root@localhost ~]# tail -1 /etc/shadow
+
+    3）检查/home/新增加的宿主目录（家目录）
+     [root@localhost ~]# ls /home/
+
+    4）为用户stu01设置一个密码（123456）
+     [root@localhost ~]# passwd stu01
+
+
+
+案例6：添加账号时设置不同属性
+    1）新建用户nsd01，宿主目录位于/opt/nsd01
+     [root@localhost ~]# useradd nsd01 -d /opt/nsd01
+
+    2）新建系统账号sys01，将UID设为1234，登录Shell设为/sbin/nologin
+     [root@localhost ~]# usermod -u 1234 -s /sbin/nologin sys01 
+
+    3）为用户sys01设置密码，并测试是否能够登录
+     [root@localhost ~]# passwd  sys01
+     [root@localhost ~]# su - sys01
+
+    4）新建用户admin，将其基本组设为users，附加组设为adm、root
+
+案例7：passwd设置密码
+    1）给用户nsd01设置密码123456
+     [root@localhost ~]# passwd nsd01
+
+    2）采用--stdin方式将用户nsd01的密码设为654321
+     [root@localhost ~]# passwd  --stdin nsd01
+
+
+案例8：usermod修改用户
+    1）新建一个用户nsd03，将宿主目录设为/opt/home03，并设置密码
+     [root@server0 ~]# useradd -d /opt/home03 nsd03
+     [root@server0 ~]# echo 123 | passwd --stdin nsd03
+
+
+    2）设置nsd03密码为redhat
+     [root@server0 ~]# echo redhat | passwd --stdin nsd03
+
+    3）将用户nsd03的宿主目录改为/home/nsd03
+     [root@server0 ~]# usermod -d /houme/nsd03 nsd03
+
+    4）将用户sys01的登录Shell改为/bin/bash
+     [root@server0 ~]# usermod -s /sbin/bash sys01
+
+
+案例9：组账号基本管理
+    1）新建组账号stugrp
+     [root@server0 ~]# groupadd stugrp
+
+    2）为stugrp组添加三个成员用户（user01、root、zhangsan）
+     [root@server0 ~]# gpasswd -a user01 stugrp
+     [root@server0 ~]# gpasswd -a zhangsan stugrp
+     [root@server0 ~]# gpasswd -a root stugrp     
+
+
+    3）从stugrp组删除一个成员（user01）
+     [root@server0 ~]# gpasswd -d user01 stugrp
+
+
+案例10：配置NTP网络时间客户端
+	配置虚拟机 server0，自动校对系统时间
+	NTP服务器位于 classroom.example.com 
+	此客户机的时间与NTP服务器的时间保持同步
+
+ [root@server0 opt]# yum -y install chrony
+ [root@server0 opt]# rpm -q chrony
+ [root@server0 /]# vim  /etc/chrony.conf
+          server  classroom.example.com  iburst 
+ [root@server0 /]# systemctl  restart  chronyd   #重起服务
+ [root@server0 /]# systemctl  enable  chronyd    #设置开机自起服务  
+ [root@server0 /]# date -s "2008-9-9 10:1"
+ [root@server0 /]# date
+
+ [root@server0 /]# systemctl restart chronyd
+ [root@server0 /]# date
+
+ [root@server0 /]# date
+
+
+
+

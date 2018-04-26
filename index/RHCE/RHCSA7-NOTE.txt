@@ -1,0 +1,534 @@
+﻿
+
+重置练习环境：
+rht-vmctl  reset  classroom
+rht-vmctl  reset  server
+rht-vmctl  reset  desktop
+
+
+RHCSA 核心考点列表
+####################################################
+
+一、开考准备 —— 
+1. 重设虚拟机的root密码
+开机过程中修改启动参数，绕过密码验证，获得根分区控制权限
+RHEL5/6：kernel  。。。。 single
+RHEL7：按e键，修改linux16行，添加 rd.break  console=tty0，ctrl + x 启动
+
+SELinux机制的安全标签
+
+chroot  /sysroot
+cat  /etc/selinux/config 
+
+echo  redhat  |  passwd  --stdin  root
+touch  /.autorelabel
+exit
+reboot
+
+
+2. 为虚拟机配置网络
+
+关于网络的系统服务：
+    network --> NetworkManager
+服务控制：
+    service  服务名  start|stop|restart|status
+    --> systemctl   start|stop|restart|status  服务名.. ..
+
+    chkconfig  服务名  on|off
+    --> systemctl   enable|disable  服务名.. ..
+
+
+RHEL5/6系统管理器init（system v、upstart）
+RHEL7的系统管理器init（systemd）
+     配置单元（unit）：service、target
+
+RHEL7的Tab键增强：
+   自动补全 命令字、选项、路径、服务名、包名、子命令、
+ 
+主机名、IP地址/子网掩码、默认网关、DNS服务器地址  
+
+临时设置：命令工具
+    hostname、hostname  新主机名、
+    hostnamectl、hostnamectl set-hostname  新主机名
+    ifconfig  [-a]、ifconfig  连接名  IP地址/掩码长度
+    route  -n、route  add|del  default  gw  默认网关地址
+    host  查询对象  [DNS服务器地址]
+
+固定/永久设置：改配置文件、重载服务
+    /etc/sysconfig/network --> /etc/hostname
+    /etc/sysconfig/network-scripts/ifcfg-连接名
+
+辅助配置工具：
+   nmcli 命令行工具
+   nmtui 半图形工具
+   nm-connection-editor  图形工具
+
+nmcli 基本用法：
+nmcli device status 或 nmcli connection show\
+nmcli connection show  "连接名称"
+nmcli con mod "System eth0" ipv4.method manual ipv4.addresses "IP地址/掩码  [默认网关]"
+
+nmcli  connection  up  "连接名称"
+nmcli  connection  down  "连接名称"
+
+接口名称：网卡设备的物理名称
+连接名称：配置的逻辑名称
+
+连接到虚拟机的方式：
+1. 直接用桌面快捷方式
+2. ssh远程登录：  ssh  -X  用户名@服务器地址
+
+运行级别切换：
+systemctl   isolate   multi-user.target
+systemctl   isolate   graphical.target
+systemctl  set-default   目标级别
+
+
+真机访问练习环境 ——
+CentOS 6.7 === vmnet1 ====> f0_rh254（foundation0）
+1. 修改VMware软件的网卡设置
+     禁用vmnet1的DHCP，确定网段（192.168.25.0/24）
+2. 修改f0_rh254虚拟机的网卡类型（在VMware软件中）
+     选择/dev/vmnet1
+3. 为虚拟机foundation0添加一个IP地址
+     修改 "Bridge  eno1677..."，添加 192.168.25.77
+     激活新配置（nmcli  con  up  "Bridge...."）
+
+
+
+
+二、系统管理任务 ——
+1. 添加YUM源
+用途：软件仓库/YUM源提供软件包及关联信息
+配置文件：/etc/yum.conf、/etc/yum.repos.d/*.repo
+[仓库1标识]
+    name  =  仓库描述
+    baseurl = 仓库的地址
+    enabled = 1|0
+    gpgcheck = 1|0
+    #gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+[仓库2标识]
+    .....
+
+
+yum命令的使用：
+# yum  clean  all
+# yum  repolist
+# yum  list  [软件名.. ..]
+# yum  info  软件名.. ..
+# yum   -y  install  软件名.. .. 
+# yum   -y  reinstall  软件名.. .. 
+# yum   -y  remove  软件名.. ..
+# yum   -y  update  软件名.. ..
+# yum  search  关键词
+# yum  provides  "文件路径"
+
+
+3. 添加用户/组账号
+11. 配置用户账号
+
+如何控制文档的访问 —— 谁（归属）、有什么权限（r、w、x）
+
+用户账号：登录系统、控制访问权限		/etc/{passwd,shadow}
+组账号：控制访问权限  			/etc/{group,gshadow}
+
+用户账号的增删改查：
+    useradd  [-u  UID]  [-g  基本组]  [-G  附加组] [-d  家目录]  [-s  登录Shell]  用户名
+    userdel  -r  用户名
+    usermod   [-u  UID]  [-d  家目录]  [-s  登录Shell]  用户名
+    id  用户名
+    echo  密码  |  passwd  --stdin  [用户名]
+
+组账号的增删改查：
+基本组（私有组）、附加组（公共组、从属组）
+    groupadd  组名
+    groupdel  组名
+    gpasswd  -a  用户名  组名
+    gpasswd  -d  用户名  组名
+    groups
+    usermod  -a  -G  组名   用户名
+
+用户身份切换：
+su  -  用户名
+su  -  用户名  -c  '命令行'
+
+
+4. 设置文件权限
+6. 建共用目录（SGID）
+
+权限的种类 —— 
+基本权限：r、w、x（针对 属主、属组、其他人）
+对于文件来说 
+   读取，r，read ====》  cat、less、more、head、tail .. ..
+   修改，w，write ====》 vim、gpedit、>、>>、.. ..
+   执行，x，execute  ====》  是否能被运行
+对于目录（文件夹）来说 
+   读取，r，read ==》  ls .. ..
+   修改，w，write ==》 mkdir、touch、cp、mv、rm、chmod.. ..
+   执行，x，execute  ==》  cd、是否能进入此目录
+特点：只要对一个目录有w权限，可以删除这个目录下任何文件
+
+
+
+权限的操作指令 ——
+ls  -l  文档....
+# ls  -ld /etc/passwd /boot
+dr-xr-xr-x.    4 root root 4096 7月  11 2014 /boot
+-rw-r--r--.    1 root root 2228 11月  6 23:07 /etc/passwd
+
+chmod   -R  权限字串   文档....
+chmod  归属关系+-=权限类型  文档....
+chmod  u+x,g-w,o=rwx  文档....
+chmod  a+x  文档....
+chmod  ugo+x  文档....
+chmod  755  文档....
+chmod  u+s,g+s,o+t  .....
+chmod  4755  程序文件....
+chmod  1777  程序文件....
+
+权限的数字标记：
+r  4、w  2、x  1
+
+文档的归属关系：
+属主（user）：这个文件属于哪一个用户
+属组（group）：这个文件属于哪一个组
+其他人（other）：除了属主、属组以外的任何用户
+所有人（all）：所有用户
+
+
+所有者权限  所属组权限  其他人的权限
+rw- r-- ---
+6     4   0
+
+rwxr-xr-x ==》 421401401  ==》755 
+
+rwxrwxrwx ==》 777
+--------- ==》 000
+rw-r--r-- ==》 644
+
+chown   -R   属主   文档....
+chown   -R   :属组   文档....
+chown   -R   属主:属组   文档....
+
+
+
+附加权限：
+4    set uid：附加到 “属主” 的x位上，变成 s
+      使普通的程序具有特殊属性（任何人在执行这个程序的时候，自动拥有这个程序的所有者的权限）
+2    set gid：附加到 “属组” 的x位上，变成 s
+      使普通的程序具有特殊属性（任何人在执行这个程序的时候，自动拥有这个程序的所属组的权限）
+      使普通的目录的属组权限能够自动往下继承（在目录下新建的文档自动属于这个目录的属组）
+1    粘滞位：附加到 “其他人” 的x位上，变成 t
+      使用户在拥有w权限的目录下不能够删除其他人的文件
+
+chmod  u+s  文件.. ..
+chmod  g+s  文件.. ..
+chmod  o+t  文件.. ..
+chmod  4755  文件.. ..
+chmod  1777  目录.. ..
+
+
+访问控制列表：ACL（针对个别用户/组设置独立的权限）
+getfacl  文档....
+setfacl   -m  user:用户名:权限组合  文档....
+setfacl   -m  group:组名:权限组合  文档....
+setfacl  -b  文档....
+
+
+
+5. 配置计划任务
+
+什么是计划任务：
+   按照计划的时间（时刻、周期）执行指定的任务
+at 
+crontab
+
+系统服务：crond
+配置文件：
+    /etc/crontab
+    /var/spool/cron/用户名
+配置记录格式：
+分  时  日  月  周    任务操作命令（用绝对路径、必要时可记录输出）
+
+时刻表示方式：
+*、5-10、5,7,9、*/3、1-15/3
+
+配置工具：
+crontab  -e  [-u  用户名]
+crontab  -l   [-u  用户名]
+crontab  -r   [-u  用户名]
+
+设置系统日期、时间：
+date  -s  'HH:MM'
+date  -s  'HH:MM:SS'
+date  -s  'yyyy-mm-dd'
+date  -s  'yyyy-mm-dd HH:MM'
+
+根据BIOS时间设置系统时间：
+    hwclock  -s
+根据系统时间设置BIOS时间：
+    hwclock  -w
+
+检查计划任务的执行情况：
+tail  -5  /var/log/cron
+
+
+7. 升级内核
+
+系统引导相关知识 ——
+GRUB2引导器，支持多操作系统、多版本内核
+内核文件：/boot/vmlinuz-*
+
+/boot/grub/grub.conf ==》/boot/grub2/grub.cfg
+/etc/default/grub
+/etc/grub.d/*
+grub2-mkconfig  -o  /boot/grub2/grub.cfg
+
+rpm软件包管理 ——
+RPM，Redhat（RPM） Package Manager
+.rpm
+
+rpm  -ivh  软件名-版本号.rpm .. ..   [--force]
+rpm  -Uvh  软件名-版本号.rpm .. ..
+rpm  -e  软件名  .. ..   [--nodeps]
+rpm -q  软件名  .. ..
+rpm  -qa
+rpm -ql  软件名  .. ..
+rpm -qi  软件名  .. ..
+rpm  -qpi  软件名-版本号.rpm .. ..
+rpm  -qpl  软件名-版本号.rpm .. ..
+rpm  -qf  文件路径
+
+旧版本：3.10.0-123.el7.x86_64
+新版本：3.10.0-123.1.2.el7.x86_64
+
+
+
+三、文档管理 ——
+13. 查找文件（find）
+查找可执行的程序文件：
+    which  文件名
+按照条件查找系统当中的任何文件：
+    find  [目录范围]  [查找条件1]  -o  [查找条件2] .. ..
+    find  [目录范围]  [查找条件1]  -a  [查找条件2] .. ..
+常见的查找条件表示：
+    -name  文档名称
+    -type  文档类型  	【f、d、l、b、c】
+    -size  +|-文档大小
+    -mtime  +|-修改时间 	【1  之前24小时~48小时】
+    -user  所属用户
+    -group  所属组
+处理find查找结果：
+    -exec   命令行（嵌入 {} 替代查找结果）   \;
+  
+修改文件的时间戳：
+touch  -d  '2015-12-31  12:30'  f2.txt
+  
+
+14. 检索文本（grep）
+grep  '关键词'   文件.. ..
+grep  '正则表达式'   文件.. ..
+常见的选项：
+    -v：将条件取反
+    --color：突出显示结果
+    -w：单词匹配
+    -c：统计匹配行数
+简单的正则表达式：
+    ^word：查找以word开头
+    word$：查找以word结尾
+    ^$：查找空行
+    -E：支持使用扩展正则表达式（egrep）	
+
+重定向操作：
+命令操作  >  文件
+命令操作  >>  文件
+
+管道操作：
+命令1  |  命令2
+
+命令替换：
+命令2  $(命令1)
+
+
+16. 创建归档（tar）
+
+Linux系统的文档备份/恢复 ——
+
+归档：把很多文件归纳到一起 	tar
+压缩：减小文件占用空间的大小 	gzip、bzip2、xz	
+
+tar命令的选项：
+   -c：创建新文档
+   -x：释放备份文档
+   -f：指定文档名称
+   -z：处理 .gz 格式
+   -j：处理 .bz2 格式
+   -J：处理 .xz 格式
+   -t：显示文档列表
+   -p：保持原有权限
+   -P：保持绝对路径
+   -C：指定释放备份文件时的目标位置
+   --exclude=排除的子目录
+
+tar 制作备份文件：
+   tar  -zcf  备份文件名.tar.gz  被备份的文档....
+   tar  -jcf  备份文件名.tar.bz2  被备份的文档....
+   tar  -Jcf  备份文件名.tar.xz  被备份的文档....
+
+tar 从备份文件恢复：
+   tar  -xf  备份文件名   [-C  目标文件夹]
+
+tar 查看备份文件内容：
+   tar  -tf  备份文件名
+
+
+四、配置应用客户端 ——
+8. 设置LDAP客户端
+本地账号：存放在本机的/etc/passwd、/etc/shadow
+       家目录/home/zhsan
+网络账号：存放在网络（AD域、LDAP域）中的某一台服务器上
+       家目录漫游（存放在服务器上）
+LDAP，
+Lightweight Directory Access Protocol，轻量级目录访问协议
+
+将一台Linux计算机加入到LDAP域 ——
+配置工具：authconfig-tui 文本界面、authconfig-gtk 图形界面
+系统服务：sssd
+
+检查LDAP用户：
+id  用户名
+getent  passwd  用户名 		【ldapuser0，密码 password】
+
+
+9. 设置autofs触发挂载+NFS共享客户端
+
+本地文件系统：文档存放在本机连接的磁盘上
+    EXT4、FAT32
+网络文件系统：文档存放在网络中的一台服务器的磁盘上
+    NFS，Network File System
+    Samba共享
+
+mount   设备路径   挂载点目录 ——
+mount挂载（本地）：
+mount   /dev/cdrom  /mnt/dvd
+mount   /dev/sda1  /mnt/tdir
+mount挂载（NFS）：
+mount    服务器地址:共享文件夹路径   /mnt/tdir
+
+NFS客户端 ——
+查看共享资源列表：
+    showmount  -e  目标主机
+挂载NFS共享资源：
+mount    服务器地址:共享文件夹路径   /mnt/tdir
+
+
+文件系统的挂载方式 ——
+手动挂载： mount   设备路径   挂载点目录
+开机自动挂载：修改 /etc/fstab 配置文件
+         设备路径   挂载点目录  文件系统类型  defaults,_netdev  0 0
+半自动挂载（已经配置好/etc/fstab）：
+         mount   设备路径
+         mount  挂载点目录
+触发挂载（按需自动挂载）：autofs服务
+        软件包/系统服务：autofs
+        主配置：/etc/auto.master
+	目标文件夹    监控配置文件
+        监控配置：/etc/*
+	子目录名  	   -挂载选项	:设备路径
+
+
+10. 设置NTP时间同步客户端
+NTP，Network  Time  Protocol
+时间同步：将计算机与指定服务器的时间保持一致
+NTP服务端（考试服务器）：ntpd
+NTP客户端：软件包chrony（系统服务chronyd）
+客户端配置文件：/etc/chrony.conf
+
+NTP验证/设置工具：
+    timedatectl
+    timedatectl  set-ntp  yes
+    ntpdate  classroom.example.com
+
+
+五、磁盘分区及存储 ——
+15. 添加逻辑卷
+2. 扩展逻辑卷
+12. 添加交换分区
+
+在计算机上使用磁盘空间的过程：
+识别磁盘 --> 分区 --> 格式化 --> 挂载  --> 访问挂载点
+fdisk -l  -->  fdisk/parted --> mkfs相关 --> mount --> ls、vim
+
+只有一块/dev/vda
+
+
+磁盘分区操作 ——
+fdisk  -l
+fdisk  /dev/vdb 
+parted  /dev/vdb
+
+分区模式msdos：
+     四个主分区、扩展分区、逻辑分区
+分区模式gpt（支持>2T空间）：
+     主分区
+
+刷新硬盘分区表：
+     partprobe  /dev/vdb 或者 partx  -a  /dev/vdb
+     reboot
+
+格式化操作：
+mkfs.ext3   分区设备
+mkfs.ext4   分区设备
+mkfs.xfs   分区设备
+mkfs.vfat  -F  32  分区设备
+
+
+
+
+LVM逻辑卷管理机制 ——
+把零散的分区 ===》整编的大卷组 ===》 根据需要获取空间
+游击队 ===》 八路军 ===》按需增编/简编人员
+
+识别磁盘 --> 分区 --> 卷组 --> 逻辑卷 --> 格式化 --> 挂载  --> 访问挂载点
+
+实现方式：
+分区/物理卷（2G、4G、6G） --> 卷组（12G） --> 逻辑卷（10G、1G）
+
+
+优势：动态调整卷的大小，不影响用户的使用
+
+LVM管理工具 ——
+    物理卷操作：pvscan、pvdisplay、pvcreate
+    卷组操作：vgscan、vgdisplay、vgcreate、vgremove、
+                      vgextend、vgchange
+    逻辑卷操作：lvscan、lvdisplay、lvcreate、lvremove、lvextend
+
+PE：分配逻辑卷空间的时候，最小的单位
+
+创建卷组：
+   vgcreate  [-s  PE大小]  卷组名  分区.. ..
+创建逻辑卷：
+   lvcreate  -L  大小  -n  名称   卷组名
+   lvcreate  -l  PE个数  -n  名称   卷组名
+扩展逻辑卷：
+   lvextend  -L  +大小  /dev/卷组名/逻辑卷名
+   resize2fs  /dev/卷组名/逻辑卷名
+		【!! vgextend、xfs_growfs】
+
+
+逻辑卷的设备位置：/dev/卷组名/逻辑卷名
+
+
+
+交换分区控制 ——
+交换分区：虚拟内存，一般设置成物理内存的1~2倍，<16G
+格式化交换分区：
+      mkswap   设备路径
+启用/停止控制：
+      swapon   设备路径
+      swapoff   设备路径
+查看交换分区使用情况：
+     swapon  -s
+     free
+
+####################################################

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Comment=
+Terminal=false
+Name=Pycharm
+Exec=/root/bin/pycharm2017/pycharm-community-2018.1/bin/pycharm.sh
+Type=Application
+Icon=/root/bin/pycharm2017/pycharm-community-2018.1/bin/pycharm.png
+
+
+#application/x-desktop
+#alacarte-made.desktop

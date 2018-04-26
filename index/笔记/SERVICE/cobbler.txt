@@ -1,0 +1,174 @@
+一、解压cobbler.zip包，cobbler主程序、工具包等
+
+[root@room9pc01 /]# ls /root/桌面/Cobbler/
+cobbler_boot.tar.gz  cobbler_web.png  cobbler.zip
+
+[root@room9pc01 /]# unzip /root/桌面/Cobbler/cobbler.zip -d /
+
+[root@room9pc01 /]# ls  /cobbler
+
+二、为真机搭建永久的本地的Yum仓库
+1.挂载/iso/CentOS-7-x86_64-DVD-1708.iso
+
+[root@room9pc01 ~]# mount /iso/CentOS-7-x86_64-DVD-1708.iso /dvd/
+[root@room9pc01 ~]# ls  /dvd/
+
+2.书写Yum客户端文件
+
+[root@room9pc01 ~]# vim /etc/yum.repos.d/nsd.repo 
+[development]
+name=dvd
+baseurl=file:///dvd
+enabled=1
+gpgcheck=0
+
+[root@room9pc01 ~]# yum repolist
+
+3.为真机永久挂载/iso/CentOS-7-x86_64-DVD-1708.iso
+
+  默认的iso文件系统     : iso9660      
+  默认的/dev/cdrom文件系统 : iso9660
+
+ /etc/rc.d/rc.local : 每次开机运行配置文件
+
+[root@room9pc01 /]# ls -l /etc/rc.d/rc.local 
+[root@room9pc01 /]# vim /etc/rc.d/rc.local
+
+mount /var/lib/libvirt/images/iso/CentOS-7-x86_64-DVD-1708.iso  /dvd
+
+[root@room9pc01 /]# reboot   #重起系统验证
+
+[root@room9pc01 /]# yum repolist 
+
+##################################################################
+三、安装cobbler主程序、工具包等
+
+[root@room9pc01 /]# yum -y install /cobbler/*.rpm
+
+#################################################################
+cobbler网络装机部署
+
+1.安装软件 cobbler cobbler-web dhcp tftp-server pykickstart httpd  tftp-server 
+
+ cobbler         #cobbler程序包
+ cobbler-web     #cobbler的web服务包
+ pykickstart     #cobbler检查kickstart语法错误
+ httpd           #Apache web服务
+ dhcp            #Dhcp服务
+ tftp-server     #tftp服务
+
+2.配置cobbler
+[root@svr7 /]# vim /etc/cobbler/settings
+
+ 修改为  next_server:  192.168.4.254                #设置下一个服务器还为本机
+ 将 server: 127.0.0.1 修改为  server: 192.168.4.254  #设置本机为cobbler服务器
+
+ 将 manage_dhcp: 0  修改为 manage_dhcp: 1         #设置cobbler管理dhcp服务
+ 将 pxe_just_once: 0  修改为 pxe_just_once: 1     #防止客户端重复安装操作系统
+
+
+3.配置cobbler的dhcp
+[root@svr7 /]# vim /etc/cobbler/dhcp.template 
+
+  :%s /192.168.1/192.168.4/g
+
+
+[root@svr7 /]# vim /etc/sysconfig/dhcpd 
+ DHCPDARGS=private1   表示dhcp将只在private1 网络接口上提供DHCP服务
+
+
+4.绝对路径解压cobbler_boot.tar.gz    #众多的引导文件
+
+[root@room9pc01 /]# tar -tf /root/桌面/Cobbler/cobbler_boot.tar.gz
+[root@room9pc01 /]# tar -xPf /root/桌面/Cobbler/cobbler_boot.tar.gz 
+
+[root@room9pc01 /]# ls  /var/lib/cobbler/loaders/
+
+5.启动相关服务
+
+[root@svr7 /]# systemctl restart cobblerd
+[root@svr7 /]# systemctl enable cobblerd
+
+[root@svr7 /]# systemctl restart httpd
+[root@svr7 /]# systemctl enable httpd
+
+[root@svr7 /]# systemctl restart tftp
+[root@svr7 /]# systemctl enable tftp
+
+[root@svr7 /]# systemctl restart rsyncd
+[root@svr7 /]# systemctl enable rsyncd
+
+
+6.同步刷新cobbler配置
+[root@svr7 /]# cobbler sync
+[root@svr7 /]# firefox https://192.168.4.254/cobbler_web
+
+
+##########################################################################################################
+  cobbler import  --path=挂载点   --name=导入系统命名（随意起）
+导入安装镜像数据
+
+[root@Cobbler ~]# mount /dev/cdrom  /dvd
+mount: /dev/sr0 is write-protected, mounting read-only
+
+[root@room9pc01 /]# cobbler list   #查看有哪些系统
+
+[root@room9pc01 /]# cobbler import --path=/dvd  --name=CentOS7
+
+
+[root@room9pc01 /]# mkdir /rhel7
+[root@room9pc01 /]# mount /iso/rhel-server-7.4-x86_64-dvd.iso    /rhel7/
+
+[root@room9pc01 /]# cobbler import --path=/rhel7  --name=RedHat7
+
+
+cobbler导入的镜像放在：/var/www/cobbler/ks_mirror
+
+[root@room9pc01 /]# cobbler profile report   #查看cobbler导入信息
+
+[root@room9pc01 /]# killall  -9 dnsmasq  #虚拟化服务会干扰DHCP服务
+
+############################################################################################################
+
+默认kickstart文件存放位置：/var/lib/cobbler/kickstarts/
+
+[root@cobbler ~]# cobbler list
+
+修改kickstart文件：
+[root@cobbler ~]# cobbler profile edit --name=CentOS7.4-A --kickstart=/var/lib/cobbler/kickstarts/CentOS-7.3-x86_64.cfg
+
+
+[root@cobbler ~]# cobbler profile report
+[root@cobbler ~]# cobbler sync
+
+############################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

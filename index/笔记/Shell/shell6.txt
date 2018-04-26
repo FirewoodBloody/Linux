@@ -1,0 +1,78 @@
+awk文件过滤工具
+	awk文本过滤的基本用法
+	1）基本操作方法
+		格式：awk [选项] '[条件]{指令}' 文件
+		其中，print 是最常用的编辑指令；若有多条编辑指令，可用分号分隔。处理文本时，若未指定分隔符，则默认将空格、制表符等作为分隔符。
+			[root@localhost ~]# df -h | grep "^/dev" | awk '{print $1}'| grep "^/dev/vda1$"
+			/dev/vda1
+
+
+	2）选项 -F 可指定分隔符
+		输出passwd文件中以分号分隔的第1、7个字段，显示的不同字段之间以逗号隔开
+			[root@svr5 ~]# awk -F: '{print $1,$7}' /etc/passwd
+		输出每次处理的行号，以及当前行以“:”分隔的字段个数：
+			[root@svr5 ~]# awk -F: '{print NR,NF}' passwd.txt
+	3)awk的print指令不仅可以打印变量，还可以打印常量
+			[root@svr5 ~]# awk -F: '{print "用户名:",$1,"解释器:",$7}' /etc/passwd
+
+	利用awk提取本机的网络流量、根分区剩余容量、获取远程失败的IP地址
+		1）提取IP地址
+		通过ifconfig eth0查看网卡信息，其中包括网卡流量：
+			[root@localhost ~]# ifconfig eth0 | awk '/RX p|TX p/{print $6,$7 }'
+		2）提取根分区剩余容量
+			分步实现的思路及操作参考如下——
+			通过df命令查看根分区的使用情况，其中包括剩余容量：
+			[root@svr5 ~]# df -h | awk '/\/$/{print $4}'
+		3）根据/var/log/secure日志文件，过滤远程连接密码失败的IP地址
+			[root@svr5 ~]# awk '/Failed/{print $11}' /var/log/secure
+
+	4)awk处理的时机(完整语法格式)
+		awk会逐行处理文本，支持在处理第一行之前做一些准备工作，以及在处理完最后一行之后做一些总结性质的工作
+		awk  [选项]  ' BEGIN{指令} {指令} END{指令}'  文件
+			BEGIN{ }	行前处理，读取文件内容前执行，指令执行1次		//支持数字运算 awk 'BEGIN{print x+y;}'
+			{ }	逐行处理，读取文件过程中执行，指令执行n次
+			END{ }	行后处理，读取文件结束后执行，指令执行1次
+			统计系统中使用bash作为登录Shell的用户总个数:
+				[root@svr5 ~]# awk 'BEGIN{x=0}/bash$/{x++} END{print x}' /etc/passwd
+
+
+awk处理条件
+	1）使用正则设置条件
+		[root@svr5 ~]# awk -F: '/bash$/{print}' /etc/passwd		//输出其中以bash结尾的完整记录
+		[root@svr5 ~]# awk -F: '/^(root|adm)/{print $1,$3}' 		//输出root或adm账户的账户名和UID信息
+		[root@svr5 ~]# awk -F: '$7!~/nologin$/{print $1,$7}' 		//输出其中登录Shell不以nologin结尾（对第7个字段做!~反向匹配）的用户名、登录Shell信息
+
+	2）使用数值/字符串比较设置条件
+		[root@svr5 ~]# awk -F: 'NR==3{print}' /etc/passwd			//输出第3行（行号NR等于3）的用户记录
+		[root@svr5 ~]# awk -F: '$3>=1000{print $1,$3}' /etc/passwd	//输出账户UID大于等于1000的账户名称和UID信息
+		[root@svr5 ~]# awk -F: '$1=="root"' /etc/passwd			//输出用户名为“root”的行
+
+	3）逻辑测试条件
+		[root@svr5 ~]# awk -F: '($3>10)&&($3<20)' /etc/passwd		//输出账户UID大于10并且小于20的账户信息
+		[root@svr5 ~]# awk -F: '$3>1000||$3<10' /etc/passwd		//输出账户UID大于1000或者账户UID小于10的账户信息
+
+	4)支持数字运算
+		[root@svr5 ~]# awk 'BEGIN{x=8;x--;print x}'
+		[root@svr5 ~]# seq  200 | awk  '$1%3==0{i++} END{print i}'  //统计3的倍数的数量
+
+awk流程控制(if分支结构（双分支、多分支）)
+	awk过滤中的if分支结构
+	1）单分支
+		if(判断){指令}
+		[root@svr5 ~]# awk -F: '{if($3<=1000){i++}}END{print i}' /etc/passwd
+	2）双分支
+		[root@svr5 ~]# awk -F: '{if($3<=500){i++}else{j++}}END{print i,j}' /etc/passwd
+
+	awk数组
+	1）数组的语法格式
+		数组是一个可以存储多个值的变量，具体使用的格式如下：
+		定义数组的格式：数组名[下标]=元素值
+		调用数组的格式：数组名[下标]
+			[root@svr5 ~]# awk 'BEGIN{a[0]=11;a[1]=88;print a[1],a[0]}'
+		遍历数组的用法：for(变量 in 数组名){print 数组名[变量]}。
+			[root@svr5 ~]# awk 'BEGIN{a[0]=00;a[1]=11;a[2]=22; for(i in a){print i,a[i]}}'
+		awk数组的下标除了可以使用数字，也可以使用字符串，字符串需要使用双引号
+			[root@svr5 ~]# awk 'BEGIN{a["hehe"]=11;print a["hehe"]}'
+
+awk扩展应用
+	

@@ -1,0 +1,487 @@
+检查两台虚拟机的Yum仓库
+
+[root@svr7 ~]# yum clean all    #清空缓存
+
+[root@svr7 ~]# yum repolist     #查看仓库信息
+
+#################################################################
+
+Split分离解析
+
+什么是分离解析
+• 当收到客户机的DNS查询请求的时候
+– 能够区分客户机的来源地址
+– 为不同类别的客户机提供不同的解析结果(IP地址)
+
+– 当不同类别的客户机请求解析同一个域名时，得到的解析结果不同
+
+– 意义：让客户端访问网络中最近的服务器
+
+
+
+BIND的view视图
+• 根据源地址集合将客户机分类
+– 不同客户机获得不同结果(待遇有差别)
+– 注意：客户机分类得当（所有的客户端都要找到对应的分类）
+– 注意：由上到下匹配，匹配即停止
+– 注意：所有的zone都必须在view字段里面
+
+ view   "nsd"    {
+  match-clients   {  192.168.4.207;  }   #匹配客户端的地址
+  zone "tedu.cn"    {
+    ...... 地址库1;
+   }; };
+
+ view   "abc"   {
+  match-clients  {   any;   }             
+  zone "tedu.cn"    {                           
+   ...... 地址库2;
+  }; };
+
+环境及需求
+– 权威DNS:svr7.tedu.cn 192.168.4.7
+
+– 负责区域:tedu.cn
+– A记录分离解析 —— 以 www.tedu.cn 为例
+
+客户机来自 解析结果
+     192.168.4.207---------》 192.168.4.100
+     其他地址 ---------》 1.2.3.4
+
+
+虚拟机A：
+1.修改配置文件/etc/named.conf
+view  "nsd"  {
+ match-clients   {   192.168.4.207;  };
+ zone  "tedu.cn"  {
+    type  master;
+    file  "tedu.cn.nsd";
+    };
+  };
+view  "abc"  {
+ match-clients  {   any;  };
+ zone  "tedu.cn"  {
+    type  master;
+    file  "tedu.cn.abc";
+    };
+  };
+2.建立地址库文件
+[root@svr7 /]# tail  -3  /var/named/tedu.cn.nsd 
+tedu.cn.    NS  svr7
+svr7        A   192.168.4.7
+www         A   192.168.4.100
+
+[root@svr7 /]# tail  -3  /var/named/tedu.cn.abc 
+tedu.cn.    NS  svr7
+svr7        A   192.168.4.7
+www         A   1.2.3.4
+3.重起named服务
+4.在虚拟机A与虚拟机B，分别测试解析
+
+##########################################################################
+options {
+        directory       "/var/named";
+};
+acl myip { 192.168.4.207; 192.168.4.10;
+            192.168.4.1;  192.168.4.123; };
+view "nsd" {
+ match-clients {   myip; };
+ zone "tedu.cn" {
+    type master;
+    file "tedu.cn.nsd";
+    };
+  };
+view "abc" {
+ match-clients {  any;  };
+ zone "tedu.cn" {
+    type master;
+    file "tedu.cn.abc";
+    };
+  };
+
+################################################################################
+RAID磁盘阵列
+
+• 廉价冗余磁盘阵列
+– Redundant Arrays of Inexpensive Disks
+– 通过硬件/软件技术,将多个较小/低速的磁盘整合成一
+个大磁盘
+– 阵列的价值:提升I/O效率、硬件级别的数据冗余
+– 不同RAID级别的功能、特性各不相同
+
+
+• RAID 0,条带模式
+– 同一个文档分散存放在不同磁盘
+– 并行写入以提高效率
+– 至少2块磁盘
+
+• RAID 1,镜像模式
+– 一个文档复制成多份,分别写入不同磁盘
+– 多份拷贝提高可靠性,效率无提升
+– 至少2块磁盘
+
+• RAID5,高性价比模式
+– 相当于RAID0和RAID1的折中方案
+– 需要至少一块磁盘的容量来存放校验数据
+– 至少3块磁盘
+
+• RAID6,高性价比/可靠模式
+– 相当于扩展的RAID5阵列,提供2份独立校验方案
+– 需要至少两块磁盘的容量来存放校验数据
+– 至少4块磁盘
+
+• RAID 0+1/RAID 1+0
+– 整合RAID 0、RAID 1的优势
+– 并行存取提高效率、镜像写入提高可靠性
+– 至少4块磁盘
+
+############################################################
+进程管理
+
+   程序：静态的代码，占用硬盘
+
+   进程：动态的代码，占用cpu、内存
+
+     父进程   子进程   树型结构
+
+   进程的标识：PID  
+
+查看进程
+
+• pstree — Processes Tree
+– 格式:pstree [选项] [PID或用户名]
+
+• 常用命令选项
+– -a:显示完整的命令行
+– -p:列出对应PID编号
+
+   systemd所有进程的父进程  PID 为1
+
+[root@svr7 /]# pstree
+
+[root@svr7 /]# pstree  lisi
+
+[root@svr7 /]# pstree  -p  lisi
+
+[root@svr7 /]# pstree  -ap  lisi
+
+
+
+• ps aux 操作
+– 列出正在运行的所有进程
+
+用户  进程ID  %CPU  %内存  虚拟内存 固定内存  终端  状态  起始时间  CPU时间  程序指令
+
+
+• ps -elf 操作
+– 列出正在运行的所有进程
+– 可以看到进程的父进程PID
+
+
+
+
+• top 交互式工具
+– 格式:top [-d 刷新秒数]
+
+[root@svr7 ~]# top  -d  1 
+  
+  按大写的P  按CPU占有比例降序排列
+  按大写的M  按内存占有比例降序排列
+
+#################################################################
+
+检索进程
+• pgrep — Process Grep
+– 用途:pgrep [选项]... 查询条件
+
+[root@svr7 ~]# pgrep cron
+
+[root@svr7 ~]# pgrep -l cron
+
+
+[root@svr7 ~]# pstree -ap lisi
+
+[root@svr7 ~]# pgrep -lU lisi
+
+
+[root@svr7 ~]# pgrep -l net
+
+[root@svr7 ~]# pgrep -l system
+
+##############################################################
+进程的前后台调度
+
+后台启动
+– 在命令行末尾添加“&”符号,不占用当前终端
+
+
+
+[root@svr7 ~]# sleep 800 &          #将程序放入后台运行
+[root@svr7 ~]# jobs                 #查看后台进程
+[root@svr7 ~]# sleep 700        
+^Z                          #按Ctrl + z  暂停放入后台
+[2]+  已停止               sleep 700
+[root@svr7 ~]# jobs             #查看后台进程
+[1]-  运行中               sleep 800 &
+[2]+  已停止               sleep 700
+
+[root@svr7 ~]# bg 2             #将后台编号为2的进程继续运行
+[root@svr7 ~]# jobs 
+
+[root@svr7 ~]# jobs 
+[1]-  运行中               sleep 800 &
+[2]+  运行中               sleep 700 &
+[root@svr7 ~]# fg 2             #将后台编号为2的进程恢复到前台
+sleep 700
+^C
+[root@svr7 ~]# fg 1
+sleep 800
+^C
+
+
+杀死进程
+
+– kill    [-9]  PID... 
+– killall [-9]  进程名...
+– pkill    关键字...
+
+
+强制踢出一个用户
+
+ killall -9 -u  用户名       #杀死该用户开启的所有进程（用户由登陆变成未登陆）
+
+
+[root@svr7 ~]# sleep 800 &
+[root@svr7 ~]# sleep 900 &
+[root@svr7 ~]# jobs -l
+[root@svr7 ~]# killall sleep
+[root@svr7 ~]# jobs -l
+
+##################################################################
+日志管理
+
+日志的功能
+• 系统和程序的“日记本”
+– 记录系统、程序运行中发生的各种事件
+– 通过查看日志,了解及排除故障
+
+
+
+主要用途
+ /var/log/messages   记录内核消息、各种服务的公共消息
+ /var/log/dmesg      记录系统启动过程的各种消息
+ /var/log/cron       记录与cron计划任务相关的消息
+ /var/log/maillog    记录邮件收发相关的消息
+ /var/log/secure     记录与访问限制相关的安全消息
+
+
+日志分析
+
+tailf 实时跟踪日志消息
+
+
+• users、who、w 命令
+– 查看已登录的用户信息,详细度不同
+
+
+• last、lastb 命令
+– 查看最近登录成功/失败的用户信息
+
+
+[root@svr7 ~]# users
+
+[root@svr7 ~]# who
+
+[root@svr7 ~]# w
+
+[root@svr7 ~]# last  -2 
+
+[root@svr7 ~]# lastb -2
+
+
+
+• Linux内核定义的事件紧急程度
+– 分为 0~7 共8种优先级别
+– 其数值越小,表示对应事件越紧急/重要
+
+
+  0  EMERG（紧急）	   会导致主机系统不可用的情况
+  1  ALERT（警告）	   必须马上采取措施解决的问题
+  2  CRIT（严重）	   比较严重的情况
+  3  ERR（错误）	    运行出现错误
+  4  WARNING（提醒）  可能会影响系统功能的事件
+  5  NOTICE（注意）    不会影响系统但值得注意
+  6  INFO（信息）	    一般信息
+  7  DEBUG（调试）	    程序或系统调试信息等
+
+
+
+使用journalctl工具
+• 提取由 systemd-journal 服务搜集的日志
+– 主要包括内核/系统日志、服务日志
+
+• 常见用法
+– journalctl | grep 关键词
+– journalctl -u 服务名 [-p 优先级]
+– journalctl -n 消息条数
+– journalctl --since="yyyy-mm-dd HH:MM:SS" --
+until="yyyy-mm-dd HH:MM:SS"
+
+
+
+[root@svr7 ~]# yum -y install httpd
+[root@svr7 ~]# systemctl restart httpd
+
+
+[root@svr7 ~]# journalctl -u httpd 
+
+[root@svr7 ~]# journalctl -u httpd  -p  6
+
+
+
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

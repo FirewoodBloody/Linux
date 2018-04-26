@@ -1,0 +1,127 @@
+netstat 	//网络状态查看器
+	7版本（ss）
+	-a	//所有连接
+	-t	//tcp连接
+	-u	//udp连接
+	-n	//数字显示
+	-p	//显示对应程序的名称
+
+Nginx服务器
+	安装nginx服务
+	安装依赖关系包：gcc pcre-devel openssl-devel 
+	源码安装：tar -xf nginx源码包解压
+		./configure \				
+		--prefix=/usr/local/nginx \		//指定安装路径(默认路径)
+		--user=nginx \				//指定用户
+		--group=nginx \				//指定组
+		--with-http_ssl_module			//开启SSL加密功能
+					//with 安装nginx模块，with --help 查看安装模块列表
+		make && make install			//编译并安装
+	
+	Nginx命令的用法
+		[root@proxy ~]# /usr/local/nginx/sbin/nginx                    //启动服务
+		[root@proxy ~]# /usr/local/nginx/sbin/nginx -s stop            //关闭服务
+		[root@proxy ~]# /usr/local/nginx/sbin/nginx -s reload        //重新加载配置文件
+		[root@proxy ~]# /usr/local/nginx/sbin/nginx –V                //查看软件信息
+		[root@proxy ~]# ln -s /usr/local/nginx/sbin/nginx /sbin/        //方便后期使用
+		ln -z /usr/local/nginx/sbin/nginx /sbin 				//创建快捷方式
+		[root@proxy ~]# netstat  -anptu  |  grep nginx			//Nginx 默认监听80端口
+
+			'//Nging服务与Httpd服务共用80端口，因此不能同时运行'
+				//netstat  -anptu  |  grep nginx  
+
+	Nginx服务升级
+		与安装基本相同，在在编译完成后，不进行安装，先备份原程序，再将编译完成的主程序复制至Nginx的运行文件下（备份老的nginx主程序，并使用编译好的新版本nginx替换老版本）
+		[root@proxy ~]# tar  -zxvf   nginx-1.12.2.tar.gz
+		[root@proxy ~]# cd nginx-1.12.2
+		[root@proxy nginx-1.12.2]# ./configure   \
+		> --prefix=/usr/local/nginx   \ 
+		> --user=nginx   \ 
+		> --group=nginx  \ 
+		> --with-http_ssl_module
+		[root@proxy nginx-1.12.2]# make   
+		[root@proxy nginx-1.12.2]# mv /usr/local/nginx/sbin/nginx  \
+		>/usr/local/nginx/sbin/nginxold
+		[root@proxy nginx-1.12.2]# cp objs/nginx  /usr/local/nginx/sbin/    //拷贝新版本
+		[root@proxy nginx-1.12.2]# 'make upgrade '                           //升级  
+
+	Nginx服务用户认证
+		//通过Nginx实现Web页面的认证，需要修改Nginx配置文件，在配置文件中添加auth语句实现用户认证。最后使用htpasswd命令创建用户及密码
+		修改Nginx配置文件		'///usr/local/nginx/conf/nginx.conf'
+		server {
+			listen       80;
+			server_name  localhost;
+			'auth_basic "Input Password:";                        //认证提示符
+			auth_basic_user_file "/usr/local/nginx/pass";'        //认证密码文件
+			location / {
+			    root   html;
+			    index  index.html index.htm;
+			}
+		  }
+		
+		2）生成密码文件，创建用户及密码			//所需安装包httpd-tools
+			使用htpasswd命令创建账户文件
+			[root@proxy ~]# htpasswd -c /usr/local/nginx/pass   tom        //创建密码文件
+			New password: 
+			Re-type new password: 
+			Adding password "for" user tom	
+			[root@proxy ~]# htpasswd  /usr/local/nginx/pass   jerry    //追加用户，不使用-c选项
+			New password: 
+			Re-type new password: 
+			Adding password "for" user jerry
+			[root@proxy ~]# cat /usr/local/nginx/pass
+
+
+	基于域名的虚拟主机
+		修改Nginx服务配置，添加相关虚拟主机配置
+		    server {
+				listen  80;                                        //端口
+				server_name  www.bb.com;                            //域名
+			location / { 
+			root   www;                                 //指定网站根路径
+			index  index.html index.htm;
+			}
+			}
+
+
+	SSL虚拟主机
+		源码安装Nginx时必须使用--with-http_ssl_module参数，启用加密模块，对于需要进行SSL加密处理的站点添加ssl相关指令（设置网站需要的私钥和证书）。
+		加密算法一般分为对称算法、非对称算法、信息摘要。
+		对称算法有：AES、DES，主要应用在单机数据加密。
+		非对称算法有：RSA、DSA，主要应用在网络数据加密。
+		信息摘要：MD5、sha256，主要应用在数据完整性校验、数据秒传等。
+		1）生成私钥与证书
+			[root@proxy ~]# cd /usr/local/nginx/conf
+			[root@proxy ~]# openssl genrsa > cert.key                            //生成私钥
+			[root@proxy ~]# openssl req -new -x509 -key cert.key > cert.pem      //生成证书
+
+	2）修改Nginx配置文件，设置加密网站的虚拟主机
+		[root@proxy ~]# vim  /usr/local/nginx/conf/nginx.conf
+			… …    
+			server {
+				listen       443 ssl;
+				server_name            www.cc.com;
+				ssl_certificate      cert.pem;
+				ssl_certificate_key  cert.key;
+				ssl_session_cache    shared:SSL:1m;
+				ssl_session_timeout  5m;
+				ssl_ciphers  HIGH:!aNULL:!MD5;
+				ssl_prefer_server_ciphers  on;
+				location / {
+				    root   html;
+				    index  index.html index.htm;
+				}
+			    }
+
+	Nginx的反向代理
+
+
+
+
+
+
+
+
+
+
+

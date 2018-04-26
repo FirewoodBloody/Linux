@@ -1,0 +1,139 @@
+交换机的工作模式：
+Switch>							#用户模式
+Switch>enable 						#特权模式
+Switch#configure  terminal 				#全局配置模式
+Switch(config)#interface fastEthernet 0/1		#接口模式
+exit								#返回上一模式
+end								#直接退到特权模式
+
+常用命令：
+Switch(config)#hostname S1				#修改主机名为S1
+Switch#show  running-config				#查看配置信息
+Switch#show version					#查看IOS版本信息
+
+全局配置模式：enable  password  123			#配置enable明文口令
+
+全局配置模式： enable  secret  456
+
+特权： copy  running-config  startup-config		#保存交换机的配置
+或 write
+
+特权：erase  startup-config				#恢复设备出厂默认值
+     reload
+
+switch(config)#no ip domain-lookup			#禁用DNS查询
+
+接口模式：shutdown						#禁用此接口
+
+
+设备配置的准备工作
+空闲一段时间后，重回初始界面的问题
+switch(config)#line con 0
+switch(config-line)#exec-timeout 0 0
+
+
+
+
+交换机的基本配置
+常用命令
+特权：show mac-address-table				#查看MAC地址表
+
+VLAN
+全局：vlan  2						#创建vlan2
+进入将要加入vlan的接口然后输入
+switchport access vlan 3					#接口加入vlan
+interface range f0/1 – 10 				#同时将多个接口加入vlan
+特权：show  vlan						#查看vlan信息
+
+trunk的配置
+接口模式：switchport  mode  trunk			#(直接配置为trunk)
+进入trunk：switchport trunk allowed vlan remove 3	#在trunk链路上移除某vlan
+进入trunk：switchport trunk allowed vlan  add  3	#在trunk链路上 添加某vlan
+特权：show  interface  f0/5  switchport		#查看接口模式
+
+EthernetChannel（以太网通道）
+全局：interface range f0/6 – 8 switchport mode trunk channel-group 1 mode on	#以太网通道的配置
+特权：show etherchannel summary				#查看以太网通道的配置
+
+
+缺省路由（默认路由）
+全局:ip  route  0.0.0.0  0.0.0.0  下一跳
+特权：show  ip  route					#查看路由表
+
+三层交换技术
+全局：ip  routing						#在三层交换机启用路由功能 
+全局：interface  vlan  2ip  address  192.168.2.254  255.255.255.0 no  shutdown 	#配置虚拟接口的IP 地址
+在三层交换机上配置Trunk并指定接口封装为802.1q接口模式
+switchport  trunk  encapsulation  dot1q switchport  mode  trunk
+进入接口：no  switchport					#配置路由接口
+
+动态路由 
+Router(config)# router ospf process-id		#启动OSPF路由进程
+Router(config-router)# network address inverse-mask area area-id			#指定OSPF协议运行的接口和所在的区域
+
+
+配置DHCP服务
+全局ip dhcp pool  名字					#（定义地址池）
+2、network 192.168.1.0 255.255.255.0			#（动态分配IP地址段）
+3、default-router 192.168.1.254			#（动态分配的网关地址）
+4、dns-server 202.106.0.20				#（动态分配的DNS服务器地址）此命令后可以跟多个备用的DNS地址。
+5、全局：ip dhcp excluded-address 192.168.1.1	#（预留已静态分配的IP地址）
+
+
+访问控制列表（ACL）
+标准访问控制列表
+全局：access-list  1  deny  192.168.1.1  0.0.0.0
+全局：access-list  1  permit  192.168.1.0  0.0.0.255
+接口模式：ip  access-group  列表号 in或out		#将ACL应用于接口
+全局：no  access-list 列表号				#删除已建立的访问控制列表
+接口模式：no  ip  access-group  列表号in 或out	#接口上取消ACL
+特权：show  access-lists					#查看访问控制列表
+
+扩展访问控制列表
+扩展访问控制列表案例：
+例1：全局： access-list 101 permit ip 192.168.1.0 0.0.0.255 192.168.2.0 0.0.0.255
+（允许192.168.1.0网络访问192.168.2.0网络的所有服务）
+全局： access-list 101 deny ip any any
+（拒绝所有）
+例2：全局： access-list 101 deny tcp 192.168.1.0 0.0.0.255 host 192.168.2.2  eq  21
+（拒绝192.168.1.0网段访问192.168.2.2的TCP的21端口）
+全局：access-list  101  permit  ip  any  any（允许访问所有）
+例3全局： access-list 101 deny icmp 192.168.1.0 0.0.0.255 host 192.168.2.2 echo
+（拒绝192.168.1.0 ping 192.168.2.2）
+
+删除扩展ACL
+全局：no  access-list  列表号
+
+命名访问控制列表
+标准命名ACL的配置
+全局:ip  access-list  standard  名字 Permit  host   192.168.1.1 deny   any
+2)命名ACL应用于接口
+接口模式：ip   access-group  名字 in或out
+扩展命名ACL的配置
+全局：ip  access-list  extended   名字deny  tcp  192.168.1.0  0.0.0.255  host  192.168.2.2  eq  80拒绝1.0网段访问2.2的web服务。
+Permit  ip  any  any 
+
+一、NAT（网络地址转换）
+全局：
+Ip nat inside source static 192.168.1.1 61.159.62.131
+在内外接口上启用NAT：
+进入出口配置：ip 　nat 　outside
+进入入口配置：ip 　nat 　inside 
+端口映射：ip nat inside source static tcp 192.168.1.6 80 61.159.62.133 80 
+2）端口多路复用（PAT）
+全局：ip nat inside source list 1 interface f0/1 overload
+
+
+
+一、查看NAT转换条目
+特权：show  ip  nat  translations显示当前存在的转换
+二、清除NAT转换条目
+1、特权： clear ip nat translation * 清除NAT转换条目中的所有所条目
+注：静态NAT条目不会被清除
+三、显示每个转换的数据包
+特权：debug  ip  nat 
+S表示源地址
+D表示目的地址
+192.168.1.2->61.159.62.130表示将192.168.1.2转换为61.159.62.130
+
+

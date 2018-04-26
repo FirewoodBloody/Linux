@@ -1,0 +1,81 @@
+
+案例：复制、删除、移动
+  1. 在目录/opt下创建一个子目录 nsd  
+     [root@server0 ~]# mkdir /opt/nsd
+     [root@server0 ~]# ls /opt/nsd
+
+  2. 在目录/opt/nsd/创建文件readme.txt,利用vim写入内容 I Love Linux
+     [root@server0 ~]# touch /opt/nsd/readme.txt
+     [root@server0 ~]# vim /opt/nsd/readme.txt
+
+  3. 将/etc/passwd 和 /etc/resolv.conf同时拷贝到/opt/nsd目录下
+     [root@server0 ~]# cp /etc/passwd /etc/resolv.conf  /opt/nsd
+
+  4. 将文件 /etc/redhat-release复制到 /root/ 下，同时 改名为 version.txt
+     [root@server0 ~]# cp /etc/redhat-release  /root/version.txt 
+
+  5. 将文件 /root/version.txt 移动到/opt/nsd/目录下
+     [root@server0 ~]# mv /root/version.txt /opt/nsd/
+ 
+  6. 将/home目录复制到/opt/nsd/目录下
+     [root@server0 ~]# cp -r /home/ /opt/nsd/ 
+
+
+案例：ls命令练习
+  1. 查看根目录下内容
+    [root@server0 ~]# ls /
+    bin   dev  lib    media  opt   root  sbin  sys  usr
+    boot  etc  lib64  mnt    proc  run   srv   tmp  var
+  2.显示根目录本身内容详细属性
+    [root@server0 ~]# ls -ld /
+    drwxr-xr-x. 16 root root 4096 2月   3 15:15 /
+
+  3.切换到/boot目录，显示当前目录内容的详细属性，并加上易读的容量单位
+    [root@room9pc01 /]# cd /boot/
+    [root@room9pc01 boot]# ls -lh
+
+
+  4.显示/root的全部内容，包括隐藏文档  
+    [root@server0 ~]# ls -A /root   #A :显示目录隐藏的文档
+
+  5.显示/bin/bash程序，详细属性
+    [root@server0 ~]# ls -ld /bin/bash
+
+  6.显示/dev/cdrom光驱设备，详细属性
+    [root@server0 ~]# ls -l /dev/cdrom 
+    lrwxrwxrwx. 1 root root 3 2月   3 15:25 /dev/cdrom -> sr0
+
+
+案例：mount挂载
+  1. 在根目录下创建目录结构/rhel7/dvd
+    [root@server0 ~]# mkdir -p /rhel7/dvd
+
+  2. 利用图形将光盘文件rhel-server-7.4-x86_64-dvd.iso放入光驱设备中
+
+  3. 将光驱设备挂载到/rhel7/dvd目录，以/rhel7/dvd目录作为其访问点
+    [root@server0 ~]# mount /dev/cdrom /rhel7/dvd/
+    mount: /dev/sr0 写保护，将以只读方式挂载
+
+  4. 查看/rhel7/dvd/Packages目录内容
+    [root@server0 Packages]# ls /rhel7/dvd/Packages/
+
+  5. 将/rhel7/dvd/Packages目录中以vsftpd开头的软件包，拷贝到/opt下
+    [root@server0 Packages]# cp /rhel7/dvd/Packages/vsftpd* /opt/
+    [root@server0 ~]# find  /rhel7/dvd/Packages/ -name "vsfrpd*" -type f -exec cp {} /opt/ \;
+
+
+
+
+案例：别名与vim的使用
+  1. 为虚拟机定义一个别名，执行byebye可以实现关闭系统      
+    [root@server0 Packages]# alias byebye='poweroff'
+            
+  2. 利用vim 修改文件/etc/hostname将其原有内容全部删除，写入新的内容为student.tmooc.cn
+    [root@server0 Packages]# vim /etc/hostname
+
+    [root@server0 ~]# echo student.tmooc.cn > /etc/hostname
+
+
+
+
+

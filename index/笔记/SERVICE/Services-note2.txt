@@ -1,0 +1,521 @@
+关闭classroom、server、desktop三台虚拟机
+############################################################
+新建教学环境
+
+一 、在真机上利用clone-vm7 产生新的虚拟机
+
+[root@room9pc01 ~]# clone-vm7 
+Enter VM number: 3
+
+[root@room9pc01 ~]# clone-vm7 
+Enter VM number: 4
+
+# ls -l /var/lib/libvirt/images/.rh7_template.img 
+-rw------- 1 qemu qemu 53695545344 1月  12 18:16 /var/lib/libvirt/images/.rh7_template.img
+
+  i权限：加上i权限，所有用户包括root都不能修改或删除该文件
+
+#  lsattr /var/lib/libvirt/images/.rh7_template.img    #查看是否有特殊权限
+
+#  chattr -i /var/lib/libvirt/images/.rh7_template.img   #去除特殊权限
+
+#  chown qemu:qemu /var/lib/libvirt/images/.rh7_template.img
+
+#  ls -l /var/lib/libvirt/images/.rh7_template.img 
+
+二、利用root 进入虚拟机   密码 123456
+
+虚拟机A  
+1.配置eth0 永久静态的IP地址：192.168.4.7/24
+2.配置永久主机名：svr7.tedu.cn
+[root@svr7 ~]# hostname svr7.tedu.cn
+[root@svr7 ~]# echo svr7.tedu.cn > /etc/hostname
+
+虚拟机B  
+1.配置eth0 永久静态的IP地址：192.168.4.207/24
+2.配置永久主机名：pc207.tedu.cn
+[root@pc207 ~]# hostname pc207.tedu.cn
+[root@pc207 ~]# echo pc207.tedu.cn > /etc/hostname
+
+三、在真机上配置远程管理的别名，进行远程管理(/root/.bashrc)
+   alias goa='ssh  -X root@192.168.4.7'
+   alias gob='ssh  -X root@192.168.4.207'
+
+四、为虚拟机A与虚拟机B 搭建本地Yum仓库
+
+虚拟机A
+1.图形将光盘放入光驱设备
+
+2.挂载光驱设备到/dvd
+[root@svr7 ~]# mkdir /dvd
+[root@svr7 ~]# ls /dvd
+[root@svr7 ~]# mount /dev/cdrom /dvd
+mount: /dev/sr0 写保护，将以只读方式挂载
+[root@svr7 ~]# ls /dvd
+
+3.书写配置文件 /etc/yum.repos.d/dvd.repo
+  [dvd]
+  name=rhel7
+  baseurl=file:///dvd
+  enabled=1
+  gpgcheck=0
+[root@svr7 ~]#  yum repolist
+
+五、检测防火墙是否关闭，SELinux状态
+
+[root@svr7 ~]# getenforce 
+
+[root@svr7 ~]# systemctl status firewalld
+
+#############################################################
+DNS服务器搭建
+
+• DNS服务器的功能
+– 正向解析:根据注册的域名查找其对应的IP地址
+– 反向解析:根据IP地址查找对应的注册域名,不常用
+
+ 所有完整的域名都会以 点  结尾
+
+                   根域   .
+
+    .com   .cn   .us   .tw   .kr   .hk   .......
+
+
+    .com.cn   .net.cn   .org.cn  .edu.cn
+
+
+    .tedu.com.cn   .haha.com.cn   .xixi.com.cn
+
+
+完整的主机名：web1.tedu.com.cn   tts.tedu.com.cn
+    
+ 
+• Full Qualified Domain Name (FQDN),完全合格主机名
+– = 站点名.域名后缀
+– = 站点名. .. .. .二级域.一级域
+  比如,www.pku.edu.cn
+
+• 常见的顶级/一级域名
+– 国家/地区域: .cn、.us、.kr、.hk、.tw、.. ..
+– 组织域:.com、.net、.edu、.org、.gov、.mil、.. ..
+
+BIND域名服务
+• BIND(Berkeley Internet Name Daemon)
+– 伯克利 Internet 域名服务
+– 官方站点:https://www.isc.org/
+bind-9.9.4-29.el7.x86_64	 //域名服务包
+bind-chroot-9.9.4-29.el7.x86_64	   //提供虚拟根支持
+
+
+– 系统服务:named
+– 默认端口:TCP/UDP 53
+– 运行时的虚拟根环境:/var/named/chroot/
+
+• 主配置文件: /etc/named.conf       #设置本机负责解析的域名是什么  
+• 地址库文件: /var/named/           #主机名与ip地址的对应关系
+
+
+
+搭建基本的DNS服务
+
+服务端：虚拟机A
+1.安装软件包
+[root@svr7 ~]# yum -y  install   bind    bind-chroot  
+
+2.修改配置文件/etc/named.conf
+
+ options {
+ 	directory 	"/var/named";     #指定地址库文件存放路径
+  };
+ zone   "tedu.cn"  IN {            #指定本机负责解析的域名
+  	type  master;                  #指定本机为权威主DNS服务器
+  	file  "tedu.cn.zone";          #指定地址库文件为tedu.cn.zone
+  };
+
+3.建立地址库文件tedu.cn.zone
+
+[root@svr7 ~]# cd /var/named/
+[root@svr7 named]# cp -p named.localhost tedu.cn.zone  #权限属性不变拷贝
+[root@svr7 named]# ls -l tedu.cn.zone
+-rw-r----- 1 root named 152 6月  21 2007 tedu.cn.zone
+ 
+[root@svr7 named]# vim  tedu.cn.zone
+[root@svr7 named]# tail -4 tedu.cn.zone
+ tedu.cn.  NS  svr7	      #声明tedu.cn.域名的DNS服务器为svr7.tedu.cn.
+ svr7	  A   192.168.4.7   #指定svr7.tedu.cn.的ip地址为192.168.4.7
+ www       A   1.1.1.1	
+ ftp       A   2.2.2.2
+
+4.重起named，设置开机自启动
+[root@svr7 named]# systemctl restart named
+[root@svr7 named]# systemctl enable named
+
+客户端：虚拟机B
+[root@pc207 ~]# echo nameserver 192.168.4.7 > /etc/resolv.conf
+[root@pc207 ~]# nslookup www.tedu.cn
+##################################################################
+多区域DNS服务
+
+虚拟机A：
+1.修改配置文件/etc/named.conf
+zone "qq.com" IN {
+        type master;  
+        file "qq.com.zone";
+};
+
+2.建立地址库文件
+[root@svr7 /]# cd /var/named/
+[root@svr7 named]# cp  -p  tedu.cn.zone  qq.com.zone
+[root@svr7 named]# vim  qq.com.zone 
+[root@svr7 named]# tail  -4  qq.com.zone
+ qq.com.  NS  svr7
+ svr7     A   192.168.4.7
+ www      A   3.3.3.3
+ ftp      A   4.4.4.4
+
+3.重起named服务
+[root@svr7 named]# systemctl restart named
+
+#############################################################
+特殊的解析记录
+
+一、基于DNS域名的负载均衡
+
+[root@svr7 named]# vim qq.com.zone 
+[root@svr7 named]# tail -6 qq.com.zone
+qq.com.  NS  svr7
+svr7     A   192.168.4.7
+www      A   192.168.4.11
+www      A   192.168.4.12
+www      A   192.168.4.13
+ftp      A   4.4.4.4
+
+二、泛域名解析
+虚拟机A：
+[root@svr7 /]# cd /var/named/
+[root@svr7 named]# vim qq.com.zone 
+ qq.com.  NS  svr7
+ svr7     A   192.168.4.7
+ www      A   192.168.4.11
+ ftp      A   4.4.4.4
+ *        A   1.2.3.4
+[root@svr7 /]# systemctl restart named
+
+虚拟机B：
+[root@pc207 /]# nslookup  www.qq.com
+[root@pc207 /]# nslookup  hahaxixi.qq.com
+
+三、有规律的泛域名解析
+
+      web1.qq.com------》192.168.10.1
+      web2.qq.com------》192.168.10.2
+      web3.qq.com------》192.168.10.3
+      web4.qq.com------》192.168.10.4
+          ......
+      web50.qq.com------》192.168.10.50
+
+   函数： $GENERATE  生成连续范围的数字
+
+虚拟机A：
+[root@svr7 /]# cd /var/named/
+[root@svr7 named]# vim qq.com.zone 
+  qq.com.  NS  svr7
+  svr7     A   192.168.4.7
+  www      A   192.168.4.11
+  ftp      A   4.4.4.4
+  *        A   1.2.3.4
+  $GENERATE  1-50  web$   A   192.168.10.$
+
+[root@svr7 named]# systemctl restart named
+
+##############################################################
+DNS的子域授权
+
+         父域         www.tedu.cn       总公司
+
+         子域         www.bj.tedu.cn    北京分公司 
+ 
+        
+      tedu.cn域名由 svr7 服务器192.168.4.7 
+
+      bj.tedu.cn域名由 pc207 服务器 192.168.4.207 
+
+虚拟机B：搭建DNS负责解析bj.tedu.cn域名
+1.安装软件包
+[root@pc207 ~]# yum -y  install   bind    bind-chroot  
+2.修改配置文件/etc/named.conf
+ options {
+ 	directory 	"/var/named";     
+  };
+ zone   "bj.tedu.cn"  IN {           
+  	type  master;                 
+  	file  "bj.tedu.cn.zone";          
+  };
+3.建立地址库文件bj.tedu.cn.zone
+[root@pc207 ~]# cd /var/named/
+[root@pc207 named]# cp -p  named.localhost   bj.tedu.cn.zone  
+[root@pc207 named]# vim   bj.tedu.cn.zone
+ bj.tedu.cn.  NS  pc207     
+ pc207	     A   192.168.4.207   
+ www          A   11.12.13.14	
+4.重起named，设置开机自启动
+[root@pc207 named]# systemctl restart named
+[root@pc207 named]# systemctl enable named
+[root@pc207 named]# nslookup  www.bj.tedu.cn  192.168.4.207
+
+
+
+
+ 实现目标1：询问svr7虚拟机A  www.bj.tedu.cn 能够得到结果 
+虚拟机A：子域授权
+[root@svr7 named]# cd /var/named
+[root@svr7 named]# vim  tedu.cn.zone   #指定子域的DNS服务器
+tedu.cn.    NS  svr7
+bj.tedu.cn. NS  pc207.bj
+svr7        A   192.168.4.7
+pc207.bj    A   192.168.4.207 
+www         A   1.1.1.1	
+ftp         A   2.2.2.2
+[root@svr7 named]# systemctl restart named 
+
+[root@svr7 named]# nslookup  www.bj.tedu.cn   192.168.4.7
+Server:		192.168.4.7
+Address:	     192.168.4.7#53
+
+Non-authoritative answer:    #非权威解答
+Name:	www.bj.tedu.cn
+Address: 11.12.13.14
+
+##################################################################
+
+  递归解析： 首选DNS服务器，跑到相应其他DNS服务器上，询问最终将结果带回来过程（客户端与首选DNS服务器交互）
+
+
+  迭代查询： 首选DNS服务器 与 其他DNS服务器交互
+
+
+• 递归查询是默认开启的
+– 也可以设置 recursion yes; 来明确启用
+
+• 若要禁止递归
+– 需要设置 recursion no;
+
+###############################################################
+
+缓存DNS
+
+  作用：加速解析过程，让客户端最快得到结果
+
+
+• 方式1:全局转发
+– 将请求转发给指定的公共DNS(其他缓存DNS),请求递归服务
+
+
+• 方式2:根域迭代
+– 依次向根、一级、二级......域的DNS服务器迭代
+
+
+
+
+
+
+
+思路：真机作为缓存DNS服务器，虚拟机A作为客户端，真正的DNS为172.40.1.10
+1.查看真机DNS服务器地址
+[root@room9pc01 ~]# cat /etc/resolv.conf 
+nameserver  172.40.1.10
+
+2.真机搭建Yum仓库
+[root@room9pc01 ~]# mount /iso/CentOS-7-x86_64-DVD-1708.iso /dvd
+mount: /dev/loop2 写保护，将以只读方式挂载
+[root@room9pc01 ~]# ls /dvd
+[root@room9pc01 ~]# vim /etc/yum.repos.d/nsd.repo 
+
+[CentOS]
+name=CentOS 7.4
+baseurl=file:///dvd
+enabled=1
+gpgcheck=0
+
+[root@room9pc01 ~]# yum repolist
+[root@room9pc01 ~]# yum -y install  bind  bind-chroot
+[root@room9pc01 ~]# vim /etc/named.conf
+options {
+        directory       "/var/named";
+        forwarders  {  172.40.1.10;  };
+};
+[root@room9pc01 ~]# systemctl restart named
+客户端：虚拟机A
+[root@svr7 /]# nslookup www.360.com 192.168.4.254
+
+##################################################################
+管理运行级别（运行模式）
+
+ RHEL5 、 RHEL6   切换运行级别的命令  init
+
+	 0 ： 关机  
+	 1 ： 单用户模式（破解密码、修复系统） 
+	 2 ： 字符模式（不支持网络）
+	 3 ： 字符模式（支持网络） 
+	 4 ： 无定义
+	 5 ： 图形模式
+	 6 ： 重起 
+
+
+ RHEL7  运行模式
+
+     multi-user.target    字符模式（支持网络） 
+     graphical.target     图形模式
+
+临时切换运行模式
+[root@svr7 /]# systemctl isolate graphical.target   #临时直接切换到图形
+[root@svr7 /]# systemctl isolate multi-user.target  #临时直接切换到字符
+
+永久改变默认的运行模式
+[root@svr7 /]# systemctl get-default     #查看当前默认的运行模式
+[root@svr7 /]# systemctl set-default graphical.target #修改默认的运行模式
+[root@svr7 /]# systemctl get-default 
+
+########################################################
+晚自习：
+真机利用clone-vm7命令快速产生两台虚拟机
+1.修改虚拟机名字分别为 C 与 D
+2.虚拟机C配置ip地址为: 192.168.4.8/24  主机名为 svr8.tedu.cn
+3.虚拟机D配置ip地址为: 192.168.4.208/24  主机名为 pc208.tedu.cn
+4.虚拟机C与虚拟机D配置本地Yum仓库  
+5.检测防火墙是否关闭，SELinux状态
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

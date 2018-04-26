@@ -1,0 +1,107 @@
+LNMP服务支持
+	所需软件包： nginx	mariadb mariadb-server 	mariadb-devel 	php 	php-fmp 	php-mysql
+	
+	Nginx服务器
+	安装nginx服务
+	安装依赖关系包：gcc pcre-devel openssl-devel 
+	源码安装：tar -xf nginx源码包解压
+		./configure \				
+		--prefix=/usr/local/nginx \		//指定安装路径(默认路径)
+		--user=nginx \				//指定用户
+		--group=nginx \				//指定组
+		--with-http_ssl_module			//开启SSL加密功能
+					//with 安装nginx模块，with --help 查看安装模块列表
+		make && make install			//编译并安装
+
+		1）启动Nginx服务	80   2）启动MySQL服务 	3306  3）启动PHP-FPM服务	9000
+	
+	Nginx结合FastCGI技术即可支持PHP页面架构,通过修改Nginx及php-fpm配置文件实现对PHP页面的支持。
+	//php-fpm需要修改的常见配置如下：/etc/php-fpm.d/www.conf
+
+		修改Nginx配置文件并启动服务
+			[root@proxy ~]# vim /usr/local/nginx/conf/nginx.conf
+				location / {
+					    root   html;
+					    index  index.php  index.html   index.htm;
+					}
+				 location  ~  \.php$  {
+					    root           html;
+					    fastcgi_pass   127.0.0.1:9000;
+					    fastcgi_index  index.php;
+					    #fastcgi_param   SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+					    include        fastcgi.conf;
+					}
+				[root@proxy ~]# /usr/local/nginx/sbin/nginx -s reload	
+
+	创建PHP页面，测试LNMP架构能否解析PHP页面//创建PHP测试页面,连接并查询MariaDB数据库。
+		[root@proxy ~]# vim /usr/local/nginx/html/test2.php
+			<?php
+			$mysqli = new mysqli('localhost','root','密码','mysql');
+			//注意：root为mysql账户名称，密码需要修改为实际mysql密码，无密码则留空即可
+			if (mysqli_connect_errno()){
+			    die('Unable to connect!'). mysqli_connect_error();
+			}
+			$sql = "select * from user";
+			$result = $mysqli->query($sql);
+			while($row = $result->fetch_array()){
+			    printf("Host:%s",$row[0]);
+			    printf("</br>");
+			    printf("Name:%s",$row[1]);
+			    printf("</br>");
+			}
+			?>
+	
+	地址重写
+		rewrite 旧地址 新地址 【选项】
+			last		//不再读其他rewrite
+			break		//不再读取其他语句，结束请求
+			redirect	//临时重定向
+			permament	//永久重定向
+		Nginx服务器的地址重写，主要用到的配置参数是rewrite：rewrite regex replacement flag
+
+		访问a.html重定向到b.html（跳转地址栏）
+			[root@proxy ~]# vim /usr/local/nginx/conf/nginx.conf
+				.. ..
+				server {
+					listen       80;
+					server_name  localhost;
+				location / {
+				    root   html;
+				index  index.html index.htm;
+				rewrite /a.html  /b.html  redirect;            
+				}
+
+		修改配置文件(访问192.168.4.5的请求重定向至www.tmooc.cn)
+			[root@proxy ~]# vim /usr/local/nginx/conf/nginx.conf
+				.. ..
+				server {
+					listen       80;
+					server_name  localhost;
+				rewrite ^/ http://www.tmooc.cn/;
+				location / {
+				    root   html;
+				index  index.html index.htm;
+				# rewrite /a.html  /b.html  redirect;
+				}
+				}
+
+		修改配置文件(访问192.168.4.5/下面子页面，重定向至www.tmooc.cn/下相同的页面)
+			[root@proxy ~]# vim /usr/local/nginx/conf/nginx.conf
+				.. ..
+				server {
+					listen       80;
+					server_name  localhost;
+				rewrite ^/(.*) http://www.tmooc.cn/$1;
+				location / {
+				    root   html;
+				index  index.html index.htm;
+				# rewrite /a.html  /b.html  redirect;
+				}
+				}
+
+				if ($http_user_agent ~* firefox) {            //识别客户端firefox浏览器
+					rewrite ^(.*)$ /firefox/$1 break;
+					}
+	
+
+		

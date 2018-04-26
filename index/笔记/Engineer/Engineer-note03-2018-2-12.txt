@@ -1,0 +1,295 @@
+#############################################################
+配置IPv6地址
+
+     IPv4地址：  32个二进制      点  分隔 4个部分   十进制表示
+
+     IPv6地址： 128个二进制     冒号  分隔 8 个部分   16进制表示
+
+
+虚拟机Server
+
+# nmcli connection modify 'System eth0' ipv6.method manual
+ ipv6.addresses  2003:ac18::305/64  connection.autoconnect  yes
+
+# nmcli connection up  'System eth0'
+
+# ifconfig  |  head -4
+
+# ping6 2003:ac18::305
+
+################################################################
+
+Sticky Bit
+• 附加在其他人的 x 位上
+– 其他人的权限标识会变为 t
+– 适用于开放 w 权限的目录,可以阻止用户滥用 w 写入权限(禁止操作别人的文档)
+
+
+[root@server0 ~]# mkdir /public
+[root@server0 ~]# chmod u=rwx,g=rwx,o=rwx /public
+
+[root@server0 ~]# ls -ld /public
+drwxrwxrwx. 2 root root 6 2月  12 09:31 /public
+
+[root@server0 ~]# chmod o+t /public
+[root@server0 ~]# ls -ld /public
+drwxrwxrwt. 2 root root 6 2月  12 09:35 /public
+
+Set UID
+• 附加在属主的 x 位上
+– 属主的权限标识会变为 s
+– 适用于可执行文件,Set UID可以让使用者具有文件属主的身份及部分权限
+– 传递所有者身份
+
+
+
+
+
+###############################################################
+
+find 扩展
+• 根据名称查找,忽略大小写
+– -iname
+
+[root@server0 ~]# find /etc/  -name  "PASSWD"
+
+[root@server0 ~]# find /etc/  -iname  "PASSWD"
+/etc/passwd
+/etc/pam.d/passwd
+[root@server0 ~]# 
+
+
+• 根据账号名称或所属组
+– -user、-group
+[root@server0 ~]# find /home/ -user  student
+
+[root@server0 ~]# find /home/ -group student
+
+
+
+
+• 限制目录查找的深度(最大层数)
+– -maxdepth
+
+[root@server0 ~]# find /etc/  -name  "*.conf"
+
+[root@server0 ~]# find /etc/ -maxdepth  1  -name  "*.conf"
+
+[root@server0 ~]# find /etc/ -maxdepth  2  -name  "*.conf"
+
+[root@server0 ~]# find /etc/ -maxdepth  3  -name  "*.conf"
+
+
+find 扩展(续3)
+  • 根据文件修改时间
+
+  • -mtime     +10    10天之前
+  • -mtime     -10    最近10天之内
+
+     都是过去时间
+
+[root@server0 ~]# find /var/log/ -mtime +100     
+
+
+[root@server0 ~]# find /var/log/ -mtime -10
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

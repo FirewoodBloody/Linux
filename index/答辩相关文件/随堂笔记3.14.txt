@@ -1,0 +1,219 @@
+TTL  生命周期
+
+STP  生成树协议
+
+察看设备版本信息,其中Base ethernet MAC Address为MAC地址
+show version
+修改vlan 1 中的生成树优先级为24576(必须为4096的倍数)
+Switch(config)#spanning-tree vlan 1 priority 24576
+修改vlan 1 中的生成树优先级为次根网桥 / 主根网桥 
+Switch(config)#spanning-tree vlan 1 root secondary 
+                                         primary
+PVST+   每vlan生成树 
+负载均衡
+核心层
+汇聚层
+接入层
+
+vlan 10
+vlan 20
+vlan 30
+vlan 40
+进入组接口
+Switch(config)#interface range f0/1-5
+打802.1q封装
+Switch(config-if-range)#switchport trunk encapsulation dot1q 
+修改为中继链路
+Switch(config-if-range)#switchport mode trunk 
+
+
+左边的三层交换
+Switch(config)#spanning-tree vlan 10 root primary 
+Switch(config)#spanning-tree vlan 20 root primary 
+Switch(config)#spanning-tree vlan 30 root secondary 
+Switch(config)#spanning-tree vlan 40 root secondary 
+
+右边的三层交换
+Switch(config)#spanning-tree vlan 10 root secondary 
+Switch(config)#spanning-tree vlan 20 root secondary 
+Switch(config)#spanning-tree vlan 30 root primary 
+Switch(config)#spanning-tree vlan 40 root primary 
+
+1,检查vlan,所有交换机都要有4个vlan
+2,汇聚层链路都是trunk
+
+
+
+
+255.0.0.0
+
+255.255.0.0
+
+255.255.255.0
+
+
+1~126
+128~191
+192~223
+
+192.168.0.1
+255.255.255.0
+
+
+11000000.10101000.00000000.00000001
+11111111.11111111.11111111.10000000
+192.168.0.0~127     192.168.0.1~126
+255.255.255.128
+
+11000000.10101000.00000000.10000001
+11111111.11111111.11111111.10000000
+192.168.0.128~255   192.168.0.129~254
+255.255.255.128
+
+
+220.220.220.220  /28
+
+220.220.220.208  
+255.255.255.240
+
+192.168.0.1
+
+无类地址 
+子网划分
+
+
+128   64   32    16    8     4     2    1
+
+
+2的n次方=所需要的网段
+
+2的n次方=4
+n=借位,从主机位借
+
+11000000.10101000.00000000.00000001
+11111111.11111111.11111111.11000000
+192.168.0.0~63
+
+11000000.10101000.00000000.01000001
+11111111.11111111.11111111.11000000
+192.168.0.64~127
+
+11000000.10101000.00000000.10000001
+11111111.11111111.11111111.11000000
+192.168.0.128~191
+
+11000000.10101000.00000000.11000001
+11111111.11111111.11111111.11000000
+192.168.0.192~255
+
+192.168.0.128
+255.255.255.192   /26
+
+128  64  32  16  8  4  2   1
+192
+计算以下两个ip地址是否为同网段
+216.22.45.201  /29      200
+  216.22.45.11001000
+255.255.255.11111000
+
+216.22.45.205  /29
+  216.22.45.11001000   201~206
+255.255.255.11111000
+
+216.22.45.208
+
+
+
+1,将ip与子网都换算成二进制
+2,根据主机位计算网络ID(将主机位都置为0)
+3,两个网络ID进行对比,网络ID一致则为同网段
+
+
+10.1.1.1     10.1.1.2
+pc1          pc2
+
+
+源mac  pc1   目标mac  FF-FF-FF-FF-FF-FF
+
+Router(config)#access-list 1 permit any
+
+Router(config)#ip nat inside source list 1 
+               interface f0/1 overload 
+
+Router(config-if)#ip nat outside 
+
+Router(config-if)#ip nat inside 
+
+Active  活跃    Standby 备份
+
+交换机配置，进入vlan1接口，配置ip，打开接口
+interface Vlan1
+ ip address 200.0.0.3 255.255.255.0
+
+路由器配置进入内网的f0/0接口
+Router(config-if)#standby 1 ip 192.168.0.254
+
+修改优先级，默认100，越大越优先
+Router(config-if)#standby 1 priority 105
+配置占先权
+Router(config-if)#standby 1 preempt
+察看热备份协议状态
+Router#show standby brief 
+
+端口跟踪，跟踪f0/1，断掉后优先级减少10
+Router(config-if)#standby 1 track fastEthernet 0/1
+
+有异常保存，重启
+Router#wr
+Router#reload
+
+
+Switch(config-if)#in vlan 10
+Switch(config-if)#standby 10 ip 192.168.10.254
+Switch(config-if)#standby 10 priority 105
+Switch(config-if)#standby 10 preempt 
+
+Switch(config-if)#in vlan 20
+Switch(config-if)#standby 20 ip 192.168.20.254
+Switch(config-if)#standby 20 priority 105
+Switch(config-if)#standby 20 preempt 
+
+Switch(config-if)#in vlan 30
+Switch(config-if)#standby 30 ip 192.168.30.254
+Switch(config-if)#standby 30 preempt 
+
+Switch(config-if)#in vlan 40
+Switch(config-if)#standby 40 ip 192.168.40.254
+Switch(config-if)#standby 40 preempt 
+
+
+第二台三层
+
+Switch(config-if)#in vlan 10
+Switch(config-if)#standby 10 ip 192.168.10.254
+Switch(config-if)#standby 10 preempt 
+
+Switch(config-if)#in vlan 20
+Switch(config-if)#standby 20 ip 192.168.20.254
+Switch(config-if)#standby 20 preempt 
+
+Switch(config-if)#in vlan 30
+Switch(config-if)#standby 30 ip 192.168.30.254
+Switch(config-if)#standby 30 priority 105
+Switch(config-if)#standby 30 preempt 
+
+Switch(config-if)#in vlan 40
+Switch(config-if)#standby 40 ip 192.168.40.254
+Switch(config-if)#standby 40 priority 105
+Switch(config-if)#standby 40 preempt 
+
+
+
+
+
+
+
+
+
+
+

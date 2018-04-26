@@ -1,0 +1,51 @@
+﻿
+实验四：构建LAMP网站平台
+1.安装软件包
+[root@svr7 ~]# rpm -q httpd mariadb-server mariadb php php-mysql
+[root@svr7 ~]# yum -y install mariadb-server mariadb php php-mysql
+2.配置MySQL
+[root@svr7 ~]# systemctl mariadb restart
+[root@svr7 ~]# systemctl mariadb enable
+[root@svr7 ~]# mysqladmin -u root password 'Taren1'
+
+3.配置Httpd
+
+[root@svr7 ~]# cat /var/www/html/test1.php
+<?php
+	phpinfo();
+?>
+[root@svr7 ~]# cat /var/www/html/test2.php
+<?php
+    $link=mysql_connect('localhost','root','Taren1');
+    if($link) echo "Success !!";         //成功则显示Success !!
+    else echo "Failure !!";             //失败则显示Failure !!
+    mysql_close();                       //关闭数据库连接
+?>
+5.启动服务
+[root@svr7 ~]# service httpd restart
+6.测试
+[root@pc205 ~]# firefox http://127.0.0.1/test1.php
+[root@pc205 ~]# firefox http://127.0.0.1/test2.php
+
+实验五：PHP应用部署（Discuz！论坛系统）
+
+1.建论坛库
+[root@svr7 ~]# mysql -uroot -p
+Enter password:  			//验证管理密码
+mysql> create database bbsdb;		//创建bbsdb数据库
+mysql> show databases;			//查看数据库
+mysql> grant all on bbsdb.* to runbbs@localhost identified by 'pwd123';				//授权数据库
+mysql> quit				
+2.部署论坛网页代码
+[root@svr7 ~]# unzip Discuz_X3.2_SC_UTF8.zip -d tdir
+[root@svr7 ~]# ls -F tdir/
+[root@svr7 ~]# cp -rf tdir/upload/* /var/www/html/
+[root@svr7 ~]# cd /var/www/html/
+[root@svr7 ~]# chown -R apache template/ config/ data/ uc_client/ uc_server/
+3.安装论坛系统
+[root@pc207 ~]# firefox http://127.0.0.1/
+4.访问论坛前台首页  http://127.0.0.1/
+
+
+
+

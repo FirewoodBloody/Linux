@@ -1,0 +1,83 @@
+sed基本用法：
+	文本编辑器（非交互编辑器）诸行处理软件
+	sed文本处理工具的用法：
+		用法1：前置命令 | sed  [选项]  '条件指令'		//指令：增、删、改、查：前置命令输出结果
+		用法2：sed  [选项]  '条件指令'  文件.. ..		//指令：增、删、改、查：对文件
+			相关说明如下：
+				条件可以是行号或者/正则/
+				没有条件时，默认为所有条件
+				指令可以是增、删、改、查等指令
+				默认sed会将所有输出的内容都打印出来，可以使用-n屏蔽默认输出
+				选项中可以使用-r选项，让sed支持扩展正则
+
+	sed工具的基本选项
+		sed命令的常用选项如下：
+		-n（屏蔽默认输出，默认sed会输出读取文档的全部内容）
+		-r（让sed支持扩展正则）
+		-i（sed直接修改源文件，默认sed只是通过内存临时修改文件，源文件无影响）
+		1）sed命令的 -n 选项
+			执行p打印等过滤操作时，希望看到的是符合条件的文本。但不使用任何选项时，默认会将原始文本一并输出，从而干扰过滤效果。
+
+	sed工具的条件
+		sed命令可以使用行号或正则做为条件匹配：
+		1）行号案例
+			打印第3行：
+				[root@svr5 ~]# sed -n '3p' /etc/passwd
+			打印第3到5行：
+				[root@svr5 ~]# sed -n '3,5p' /etc/passwd
+			打印第3和5行：
+				[root@svr5 ~]# sed -n '3p;5p' /etc/passwd
+			打印第3以及后面的10行：
+				[root@svr5 ~]# sed -n '3,+10p' /etc/passwd
+			打印奇数行：
+				[root@svr5 ~]# sed -n '1~2p' /etc/passwd		//从1开始每隔2行打印一次：1 3 5 7 。。。。。行
+			打印偶数行：
+				[root@svr5 ~]# sed -n '2~2p' /etc/passwd		///从2开始每隔2行打印一次：2 4 6 8 。。。。。行
+		2）正则案例
+			打印包含root的行：
+				[root@svr5 ~]# sed -n '/root/p' /etc/passwd	//打印包含root的行
+			打印bash结尾的行：
+				[root@svr5 ~]# sed -n '/bash$/p' /etc/passwd	//打印以bash结尾的行
+		
+	sed工具的p、d、s输出操作
+		1）sed工具的p指令案例集锦
+			[root@svr5 ~]# sed  -n 'p' a.txt            //输出所有行，等同于cat a.txt
+			[root@svr5 ~]# sed  -n '4p' a.txt            //输出第4行
+			[root@svr5 ~]# sed  -n '4,7p' a.txt        //输出第4~7行
+			[root@svr5 ~]# sed  -n '4,+10p' a.txt        //输出第4行及其后的10行内容
+			[root@svr5 ~]# sed  -n '/^bin/p' a.txt        //输出以bin开头的行
+			[root@svr5 ~]# sed  -n '$=' a.txt            //输出文件的行数
+
+
+		2）sed工具的d指令案例集锦
+			[root@svr5 ~]# sed  '3,5d' a.txt             //删除第3~5行
+			[root@svr5 ~]# sed  '/xml/d' a.txt            //删除所有包含xml的行
+			[root@svr5 ~]# sed  '/xml/!d' a.txt         //删除不包含xml的行，!符号表示取反
+			[root@svr5 ~]# sed  '/^install/d' a.txt    //删除以install开头的行
+			[root@svr5 ~]# sed  '$d' a.txt                //删除文件的最后一行
+			[root@svr5 ~]# sed  '/^$/d' a.txt             //删除所有空行
+		3）sed工具的s指令案例集锦					//注意：替换操作的分隔“/”可改用其他字符，如#、&等，便于修改文件路径
+			[root@svr5 ~]# sed 's/xml/XML/' a.txt        //将每行中第一个xml替换为XML
+			[root@svr5 ~]# sed 's/xml/XML/3' a.txt     //将每行中的第3个xml替换为XML
+			[root@svr5 ~]# sed 's/xml/XML/g' a.txt     //将所有的xml都替换为XML
+			[root@svr5 ~]# sed 's/xml//g' a.txt         //将所有的xml都删除（替换为空串）
+			[root@svr5 ~]# sed 's#/bin/bash#/sbin/sh#' a.txt  //将/bin/bash替换为/sbin/sh
+			[root@svr5 ~]# sed '4,7s/^/#/' a.txt         //将第4~7行注释掉（行首加#号）
+			[root@svr5 ~]# sed 's/^#an/an/' a.txt         //解除以#an开头的行的注释（去除行首的#号）
+		4）sed工具的r指令 读取其他文件
+			[root@svr5 ~]# sed '(n)r /root/test.txt' a.txt 
+		5）sed工具的w指令 另存为
+			[root@svr5 ~]# sed '(n)w/root/test.txt' a.txt 
+		
+		6）sed工具的h指令 
+		7）sed工具的g指令 
+			sed '2h;5g' test.txt
+			小写代表覆盖，大写的代表追加
+	
+	sed多行文本处理
+		i：在指定的行之前插入文本
+		a：在指定的行之后追加文本
+		c：替换指定的行
+			[root@svr5 ~]# sed  '2a XX'   a.txt            //在第二行后面，追加XX
+			[root@svr5 ~]# sed  '2i XX'   a.txt            //在第二行前面，插入XX
+			[root@svr5 ~]# sed  '2c XX'   a.txt            //将第二行替换为XX

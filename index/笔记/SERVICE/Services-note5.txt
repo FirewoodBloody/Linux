@@ -1,0 +1,220 @@
+
+
+rsync同步服务
+
+• 命令用法
+– rsync [选项...]  源目录    目标目录
+
+• 同步与复制的差异
+– 复制:完全拷贝源到目标
+– 同步:增量拷贝,只传输变化过的数据
+
+
+• rsync操作选项
+– -n:测试同步过程,不做实际修改
+– --delete:删除目标文件夹内多余的文档
+– -a:归档模式,相当于-rlptgoD
+– -v:显示详细操作信息
+– -z:传输过程中启用压缩/解压
+
+• 本地同步
+– rsync [选项...]  本地目录1      本地目录2    //同步整个文件夹
+– rsync [选项...]  本地目录1/    本地目录2    //只同步目录下的数据
+
+虚拟机svr7：
+[root@svr7 ~]# mkdir /dir1
+[root@svr7 ~]# mkdir /nsd
+[root@svr7 ~]# ls /dir1/
+[root@svr7 ~]# ls /nsd/
+[root@svr7 ~]# cp /etc/passwd /dir1/
+[root@svr7 ~]# cp /etc/fstab  /dir1/
+[root@svr7 ~]# ls /dir1/
+[root@svr7 ~]# ls /nsd/
+
+[root@svr7 ~]# rsync  -avz  /dir1/   /nsd/    #同步第一次
+[root@svr7 ~]# ls /nsd/
+
+[root@svr7 ~]# touch /dir1/a.txt
+[root@svr7 ~]# rsync  -avz  /dir1/   /nsd/    #同步第二次
+[root@svr7 ~]# ls /nsd/
+
+[root@svr7 ~]# echo haha > /dir1/passwd  
+[root@svr7 ~]# rsync  -avz  /dir1/   /nsd/    #同步第三次
+[root@svr7 ~]# cat /nsd/passwd  
+
+
+[root@svr7 ~]# ls /dir1/
+[root@svr7 ~]# ls /nsd/
+
+[root@svr7 ~]# touch /nsd/haxi.txt
+
+[root@svr7 ~]# rsync -avz  --delete  /dir1/  /nsd/
+[root@svr7 ~]# ls /dir1/
+[root@svr7 ~]# ls /nsd/
+
+#############################################################
+不同主机之间的同步
+rsync+SSH同步
+
+• 与远程的 SSH目录保持同步
+– 下行: rsync [...]   user@host:远程目录    本地目录
+
+– 上行: rsync [...]   本地目录   user@host:远程目录
+
+
+ 虚拟机svr7的/dir1目录 与 虚拟机pc207的/opt目录
+
+虚拟机svr7：
+
+[root@svr7 ~]# ls /dir1/
+a.txt  fstab  passwd
+[root@svr7 ~]# rsync -avz --delete /dir1/  root@192.168.4.207:/opt/
+
+虚拟机pc207：
+
+[root@pc207 ~]# ls  /opt
+#################################################################
+
+实时同步
+ 虚拟机svr7的/dir1目录 与 虚拟机pc207的/opt目录
+
+一、SSH无密码的验证,部署公私钥
+ 虚拟机svr7
+1.生成公私钥
+[root@svr7 ~]# ssh-keygen        #一路回车
+[root@svr7 ~]# ls /root/.ssh/
+
+2.传递公钥
+[root@svr7 ~]# ssh-copy-id root@192.168.4.207
+
+3.验证
+[root@svr7 ~]# ssh root@192.168.4.207
+Last login: Wed Mar  7 10:07:17 2018 from 192.168.4.7
+[root@pc207 ~]# exit
+登出
+Connection to 192.168.4.207 closed.
+[root@svr7 ~]# 
+
+二、安装inotify-tools，监控目录内容的变化
+
+1.真机找到inotify-tools-3.13.tar.gz
+
+2.真机操作：上传 inotify-tools-3.13.tar.gz 虚拟机svr7
+
+# scp /root/桌面/inotify-tools-3.13.tar.gz  root@192.168.4.7:/root/
+
+3.虚拟机svr7安装 inotify-tools-3.13.tar.gz 工具
+
+ 源码编译安装
+
+• 主要优点
+– 获得软件的最新版,及时修复bug
+– 软件功能可按需选择/定制,有更多软件可供选择
+– 源码包适用各种平台
+
+  rpm包   yum   rpm -ivh
+
+
+        gcc和make
+   源码包 ------------------> 可以执行文件--------->运行安装
+
+
+步骤1:安装gcc和make开发工具
+[root@svr7 /]# yum  -y  install  gcc   make
+步骤2:tar解包,释放源代码至指定目录
+ # tar -xf /root/inotify-tools-3.13.tar.gz -C(大写) /opt/
+步骤3:  ./configure 配置,指定安装目录/功能模块等选项
+                           作用1: 检测系统是否安装了gcc
+                           作用2: 指定安装目录/功能模块等选项
+       # cd  /opt/inotify-tools-3.13/
+       # ./configure 
+
+步骤4:make 编译,生成可执行的二进制程序文件
+       # cd  /opt/inotify-tools-3.13/
+       # make
+步骤5:make install 安装,将编译好的文件复制到安装目录
+       # cd  /opt/inotify-tools-3.13/
+       # make install
+
+[root@svr7 /]# inotifywait 
+No files specified to watch!
+
+
+inotifywait [选项]  目标文件夹
+
+• 常用命令选项
+ – -m,持续监控(捕获一个事件后不退出)
+ – -r,递归监控、包括子目录及文件
+ – -q,减少屏幕输出信息
+ – -e,指定监视的 modify、move、create、delete、attrib 等事件类别
+
+三、目录内容变化，立即同步
+
+ 书写Shell脚本
+
+ while 循环
+
+   while [条件]
+   do
+         循环重复执行的语句
+   done
+
+
+[root@svr7 /]# vim  /root/rsync.sh
+#!/bin/bash
+ while inotifywait -rqq /dir1/ 
+ do
+  rsync -az --delete /dir1/  root@192.168.4.207:/opt
+ done
+
+
+##########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,520 @@
+#########################################################
+教学环境：
+• 每个学员机上有三台预先配置好的虚拟机
+  – server —— 作为练习用服务器
+  – desktop —— 作为练习用客户机
+  – classroom —— 提供网关/DNS/软件素材等资源
+
+  首先开启classroom虚拟机，让后在开启server与desktop
+
+真机上操作还原指令：
+
+[root@room9pc01 ~]# rht-vmctl   reset  classroom    #还原然后开机
+[root@room9pc01 ~]# rht-vmctl   reset  server
+[root@room9pc01 ~]# rht-vmctl   reset  desktop
+
+###########################################################
+  利用 root 用户登陆server虚拟机    密码为： redhat
+  利用 root 用户登陆desktop虚拟机   密码为： redhat
+
+###########################################################
+真机上操作  利用alias 方便每一次还原三台虚拟机
+
+   #每一次开机root用户都会读取的文件 /root/.bashrc
+   #每次开启一个新的终端也会读取的文件 /root/.bashrc
+
+[root@room9pc01 ~]# vim  /root/.bashrc       
+# .bashrc
+ alias  c='rht-vmctl   reset   classroom'
+ alias  s='rht-vmctl   reset   server'
+ alias  d='rht-vmctl   reset   desktop'
+
+ ......
+
+ 开启一个新的终端验证
+
+[root@room9pc01 ~]#  c
+[root@room9pc01 ~]#  s
+[root@room9pc01 ~]#  d
+
+##############################################################
+远程管理
+
+  Linux远程管理： ssh   对方用户名@服务器IP地址
+   
+  server虚拟机 ： IP地址  172.25.0.11     主机名：server0.example.com  
+ 
+  desktop虚拟机 ： IP地址   172.25.0.10     主机名： desktop0.example.com
+
+真机上操作：
+[root@room9pc01 ~]#  ping  172.25.0.11
+
+[root@room9pc01 ~]#  ping  172.25.0.10
+
+[root@room9pc01 ~]#  ssh  root@172.25.0.11    #远程管理172.25.0.11
+
+[root@room9pc01 ~]#  ssh  root@172.25.0.10    #远程管理172.25.0.10
+
+
+   Ctrl+Shift + t :开启一个新的终端的快捷键
+ 
+################################################################
+软件包管理
+
+使用rpm命令管理软件
+• RPM Package Manager,RPM包管理器
+
+– rpm -q   软件名...                               #检测程序是否安装
+– rpm -ivh 软件名-版本信息.rpm...     #安装软件包
+– rpm -e   软件名...                               #卸载软件
+
+[root@server0 ~]# rpm  -q   firefox   #检测firefox程序是否安装
+[root@server0 ~]# rpm  -q   haha      #检测haha程序是否安装
+[root@server0 ~]# rpm  -q   bash      #检测bash程序是否安装
+
+[root@server0 ~]# rpm  -q   net-tools    #检测net-tools程序是否安装
+[root@server0 ~]# rpm  -q   zip          #检测zip程序是否安装
+
+[root@server0 ~]# rpm  -q   vsftpd
+
+虚拟机操作Server
+
+  从光盘内容中找到安装包
+
+1.让光盘内容出现在系统中,首先关闭虚拟机server，添加光驱设备
+
+2.查看是否具备光驱设备
+
+[root@server0 ~]# ls /dev/cdrom 
+
+3.挂在光驱设备
+[root@server0 ~]# mkdir /dvd
+[root@server0 ~]# mount /dev/cdrom  /dvd
+mount: /dev/sr0 写保护，将以只读方式挂载
+[root@server0 ~]# ls /dvd
+
+[root@server0 ~]# ls /dvd/Packages/vsftpd-3.0.2-22.el7.x86_64.rpm
+[root@server0 ~]# ls /dvd/Packages/
+
+4.安装及卸载软件包
+[root@server0 ~]# rpm -q vsftpd    #查询软件是否安装
+
+[root@server0 ~]# rpm -ivh  /dvd/Packages/vsftpd-3.0.2-22.el7.x86_64.rpm
+
+[root@server0 ~]# rpm -q vsftpd     #查询是否安装成功
+
+[root@server0 ~]# rpm -e vsftpd     #卸载软件
+
+[root@server0 ~]# rpm -q vsftpd     #查询是否卸载成功
+
+##############################################################
+导入红帽签名信息(了解)
+
+[root@server0 ~]# rpm --import /dvd/RPM-GPG-KEY-redhat-release 
+
+[root@server0 ~]# rpm -q vsftpd
+[root@server0 ~]# rpm -e vsftpd
+
+[root@server0 ~]# rpm -ivh /dvd/Packages/vsftpd-3.0.2-22.el7.x86_64.rpm
+
+#############################################################
+错误：依赖检测失败：
+	bind = 32:9.9.4-50.el7 被 bind-chroot-32:9.9.4-50.el7.x86_64 需要
+
+###############################################################
+Yum软件包仓库  自动解决依赖关系，安装软件
+
+服务：    服务端  提供服务       
+             客户端  发出请求享受服务
+
+
+   服务端 ： 为客户端解决依赖关系安装软件包 classroom.example.com
+                  搭建完毕Web服务，共享了光盘所有的内容
+
+                  真机上操作：验证  http://classroom.example.com
+
+                  点击：content----->rhel7.0----->x86_64----->dvd
+
+
+虚拟机Server0上操作：
+     客户端 ：Server0.example.com 
+     客户端文件路径：/etc/yum.repos.d/*.repo
+     错误的客户端文件会影响正确的客户端文件
+
+  [root@server0 ~]# rm  -rf  /etc/yum.repos.d/*
+  [root@server0 ~]# vim  /etc/yum.repos.d/nsd.repo
+
+   [rhel7]                  #仓库的标识，随意起   不能有空格
+   name=rhel 7.0            #仓库的描述信息
+   baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/
+   enabled=1                #本文件是否生效，等于1为生效   等于0为不生效
+   gpgcheck=0               #是否检测红帽签名，等于1为检测   等于0为不检测
+
+  [root@server0 ~]# yum  repolist  #列出仓库信息，检测是否能发现Yum服务端
+
+Yum的使用
+  [root@server0 ~]# yum  install       #安装
+  [root@server0 ~]# yum  remove        #卸载
+
+  [root@server0 ~]# yum  -y install  httpd      #安装httpd软件
+  [root@server0 ~]# yum  -y install  sssd       #安装sssd软件
+  [root@server0 ~]# yum  -y install  gcc        #安装gcc软件
+
+  [root@server0 ~]# rpm  -ql  httpd      #查看httpd软件安装部署清单 
+  
+
+#############################################################
+搭建Yum仓库 虚拟机Desktop.example.com
+
+  [root@desktop0 ~]# rm  -rf  /etc/yum.repos.d/*
+  [root@desktop0 ~]# vim  /etc/yum.repos.d/nsd.repo
+
+   [rhel7]                 
+   name=rhel 7.0           
+   baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/
+   enabled=1               
+   gpgcheck=0               
+
+  [root@desktop0 ~]# yum  repolist  #列出仓库信息，检测是否能发现Yum服务端
+
+#################################################################
+真机操作  搭建本地Yum仓库
+
+   真机  服务端：将CentOS 7.4 光盘内容显示在系统中
+
+[root@room9pc01 ~]# mkdir /dvd
+[root@room9pc01 ~]# mount /iso/CentOS-7-x86_64-DVD-1708.iso  /dvd
+[root@room9pc01 ~]# ls /dvd
+
+   真机  客户端：
+[root@room9pc01 ~]# rm -rf /etc/yum.repos.d/*
+[root@room9pc01 ~]# vim /etc/yum.repos.d/nsd.repo
+
+   [CentOS]	
+   name=CentOS 7.4
+   baseurl=file:///dvd             # file：// 代表本地即是服务端
+   enabled=1
+   gpgcheck=0
+
+[root@room9pc01 ~]# yum repolist 
+[root@room9pc01 ~]# yum  -y install xeyes    #安装一个图形的软件
+[root@room9pc01 ~]# xeyes                    #运行图形的软件
+
+
+真机上操作：
+      多媒体 ：包组提供声音及音频等支持
+
+[root@room9pc01 ~]# yum groups list hidden      #列出所有的包组
+
+[root@room9pc01 ~]# yum -y  install groups  多媒体     #安装包组 多媒体
+
+###################################################################虚拟机server0上：
+
+[root@room9pc01 ~]# ssh  -X  root@172.25.0.11
+
+                     -X(大写) :在远程管理时，可以在本机运行对端的图形程序
+
+[root@server0 ~]# exit   #退出远程管理
+
+
+
+grep 过滤操作
+
+• 显示文本文件内容，包含指定字符串的行
+
+– grep [选项]   '指定字符串'     文本文件...
+
+
+   – -v,取反匹配  显示文本文件内容，不包含指定字符串的行
+
+   – -i,忽略大小写
+
+
+[root@server0 ~]# grep 'root' /etc/passwd
+
+[root@server0 ~]# grep -i 'ROOT' /etc/passwd    #忽略大小写
+
+[root@server0 ~]# grep -v 'root' /etc/passwd    #不包含root的行
+
+– ^word 以字符串word开头
+– word$ 以字符串word结尾
+
+[root@server0 ~]# grep 'root' /etc/passwd
+
+[root@server0 ~]# grep '^root'  /etc/passwd
+
+
+[root@server0 ~]# grep 'root$'  /etc/passwd
+[root@server0 ~]# grep 'bash$'  /etc/passwd
+
+
+#################################################################
+ 重定向命令输出： 将前面命令的输入结果当作文本文件的内容，写入到文件中
+
+          操作符号         >  :覆盖重定向
+                                >>  :追加重定向
+
+[root@server0 ~]# head -2 /etc/passwd
+
+[root@server0 ~]# head -2 /etc/passwd  >  /opt/1.txt
+[root@server0 ~]# cat /opt/1.txt
+
+[root@server0 ~]# hostname
+
+[root@server0 ~]# hostname  >  /opt/1.txt
+[root@server0 ~]# cat /opt/1.txt
+
+[root@server0 ~]# hostname  >>  /opt/1.txt 
+[root@server0 ~]# cat /opt/1.txt
+
+[root@server0 ~]# echo haha
+
+[root@server0 ~]# cat /opt/1.txt 
+
+[root@server0 ~]# echo 123456
+
+[root@server0 ~]# echo 123456 >> /opt/1.txt
+
+[root@server0 ~]# cat /opt/1.txt
+
+[root@server0 ~]# grep 'root' /etc/passwd
+
+[root@server0 ~]# grep 'root' /etc/passwd >> /opt/1.txt
+
+[root@server0 ~]# cat /opt/1.txt
+
+###########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

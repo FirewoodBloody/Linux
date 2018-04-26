@@ -1,0 +1,427 @@
+硬盘分区管理
+ 
+ 每个扇区，512字节
+
+  文件系统的作用：数据在空间中排列规则
+
+ • 识别硬盘 => 分区规划 => 格式化 => 挂载使用
+
+#########################################################
+一、识别硬盘
+
+[root@server0 ~]# lsblk   #查看本机识别的硬盘
+
+
+二、分区规划 
+
+  MBR/msdos 分区模式（主引导记录分区方案）
+
+   分区的类型：主分区   扩展分区   逻辑分区
+
+   最多只能有4个主分区
+    – 1~4个主分区,或者 3个主分区+1个扩展分区(n个逻辑分区)
+    – 最大支持容量为 2.2TB 的磁盘
+    – 扩展分区不能格式化
+
+[root@server0 /]# fdisk /dev/vdb 
+   n 创建新的分区----->回车----->回车---->回车----->在last结束时 +2G
+   p 查看分区表
+   n 创建新的分区----->回车----->回车---->回车----->在last结束时 +2G
+   d 删除分区
+   w 保存并退出
+
+[root@server0 ~]# lsblk 
+[root@server0 ~]# ls  /dev/vdb[1-2]
+
+三、分区格式化 
+– mkfs.ext4  分区设备路径
+– mkfs.xfs   分区设备路径
+– mkfs.vfat  分区设备路径
+
+[root@server0 ~]# mkfs.ext4  /dev/vdb1
+[root@server0 ~]# mkfs.xfs   /dev/vdb2
+[root@server0 ~]# blkid  /dev/vdb1       # 查看分区文件系统类型
+[root@server0 ~]# blkid  /dev/vdb2       # 查看分区文件系统类型
+
+四、挂载使用
+ [root@server0 ~]# mkdir /part1
+ [root@server0 ~]# mount /dev/vdb1  /part1
+ [root@server0 ~]# mount /dev/vdb2  /part2
+ mount: 挂载点 /part2 不存在
+ [root@server0 ~]# mkdir /part2
+ [root@server0 ~]# mount /dev/vdb2  /part2
+
+ [root@server0 ~]# df -h   #查看正在挂载的设备信息
+
+五、综合分区
+
+   请准备5个可用的分区  大小为2G 最后一个分区为1G
+
+[root@server0 ~]# fdisk   /dev/vdb
+   p 查看分区表
+   n 创建新的分区----->回车----->回车---->回车----->在last结束时 +2G
+   p 查看分区表
+   n 创建新的分区 
+                   ----->回车---->起始回车----->结束回车  将所有空间给扩展分区
+   p 查看分区表
+   n 创建新的分区----->起始回车------>结束+2G
+   n 创建新的分区----->起始回车------>结束+1G
+   d 删除分区
+   w 保存并退出
+
+[root@server0 ~]# partprobe     #刷新  新的分区
+[root@server0 ~]# lsblk
+
+[root@server0 ~]# ls /dev/vdb[1-6]
+
+#############################################################
+使用磁盘空间：
+    1. 查看识别的磁盘       lsblk
+    2. 划分分区                fdisk
+    3. 刷新分区                partprobe
+    4. 格式化分区             mkfs.ext4    mkfs.xfs   blkid
+    5. 挂载使用                mount
+    6. 实现开机自动挂载   /etc/fstab
+
+##############################################################
+
+##############################################################
+实现开机自动挂载
+  vim使用技巧： 在命令模式下   输入  o  另起一行  进入插入模式
+
+• 配置文件 /etc/fstab 的记录格式
+  – 设备路径       挂载点        文件系统类型      参数         备份标记     检测顺序
+
+  /dev/vdb1   /part1     ext4        defaults    0           0
+  /dev/vdb2   /part2     xfs         defaults    0           0
+
+验证：
+  [root@server0 ~]# df  -h
+
+  [root@server0 ~]# mount  -a
+  [root@server0 ~]# df  -h
+   检测/etc/fstab开机自动挂载配置文件,格式是否正确
+   检测/etc/fstab中,书写完成,但当前没有挂载的设备,进行挂载
+
+##################################################################
+图形添加一块80G磁盘
+  对于/dev/vdc 划分 分区
+   
+          3主分区：10G
+          划分2个逻辑分区：10G与10G
+
+[root@room9pc01 ~]# gos
+[root@server0 ~]# fdisk  /dev/vdc
+
+#################################################################
+LVM逻辑卷
+        作用：  1.整合分散的空间      2.逻辑卷空间可以扩大
+
+         面粉--------->大面团--------->小面团------->蒸----------->吃
+
+         砖------------>大房子--------->打隔断------->装修------->入住
+
+       将众多的物理卷，组成卷组，在从卷组中划分逻辑卷
+    
+#################################################################
+创建逻辑卷：
+
+   1.创建卷组   命令格式：vgcreate   卷组名字     分区路径
+
+ [root@server0 ~]# vgcreate  systemvg  /dev/vdc[1-2]
+ [root@server0 ~]# pvs      #查看物理卷信息
+ [root@server0 ~]# vgs      #查看卷组信息
+ 
+  2.从卷组中划分逻辑卷    命令格式： lvcreate -L 大小  -n 逻辑卷名字    卷组名字
+
+ [root@server0 ~]# lvcreate -L 16G -n mylv systemvg
+ [root@server0 ~]# lvs
+
+  3.使用逻辑卷
+ [root@server0 ~]# mkfs.ext4 /dev/systemvg/mylv 
+ [root@server0 ~]# mkdir /test
+ [root@server0 ~]# vim /etc/fstab
+  /dev/systemvg/mylv   /test   ext4   defaults  0   0
+
+ [root@server0 ~]# df -h
+ [root@server0 ~]# mount -a
+ [root@server0 ~]# df -h
+
+#################################################################
+扩展逻辑卷
+
+一    卷组有足够的剩余空间
+
+ 1.扩展空间的大小
+[root@server0 ~]# lvs
+[root@server0 ~]# vgs
+
+[root@server0 ~]# lvextend -L 18G /dev/systemvg/mylv
+
+[root@server0 ~]# vgs
+[root@server0 ~]# lvs
+
+ 2.扩展文件系统的大小
+       ext4 :  resize2fs 
+       xfs :  xfs_growfs
+
+[root@server0 ~]# df -h
+[root@server0 ~]# resize2fs /dev/systemvg/mylv  #刷新文件系统
+[root@server0 ~]# df -h
+
+
+
+二  卷组没有足够的剩余空间
+
+  1.扩展卷组
+[root@server0 ~]# vgextend   systemvg  /dev/vdc3
+[root@server0 ~]# vgs
+
+ 2.扩展逻辑卷空间的大小
+[root@server0 ~]# lvs
+[root@server0 ~]# vgs
+
+[root@server0 ~]# lvextend -L  25G  /dev/systemvg/mylv
+
+[root@server0 ~]# vgs
+[root@server0 ~]# lvs
+
+3.扩展文件系统的大小
+       ext4 :  resize2fs 
+       xfs :  xfs_growfs
+
+[root@server0 ~]# df -h
+[root@server0 ~]# resize2fs  /dev/systemvg/mylv  #刷新文件系统
+[root@server0 ~]# df -h
+
+
+###########################################################
+  逻辑卷也可以缩减
+
+    1.缩减文件系统
+
+    2.缩减空间
+
+###########################################################
+  卷组划分空间的单位  ： PE   默认大小为4M
+
+     请划分一个逻辑卷lvtest01   逻辑卷的大小为16个PE的大小
+
+[root@server0 ~]# lvcreate -l 16 -n lvtest01 systemvg
+
+[root@server0 ~]# lvs
+
+
+     请划分一个逻辑卷lvtest02   逻辑卷的大小250M 
+
+1.修改PE的大小
+[root@server0 ~]# vgchange  -s  1M   systemvg  
+[root@server0 ~]# vgdisplay  systemvg         #显示卷组详细信息查看PE大小
+
+2.划分一个逻辑卷
+[root@server0 ~]# lvcreate  -L  250M   -n   lvtest03  systemvg 
+[root@server0 ~]# lvs
+
+#################################################################
+
+删除逻辑卷
+
+     先删除逻辑卷（lv）---->删除卷组（vg）---->删除物理卷（pv）
+
+
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

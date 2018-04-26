@@ -1,0 +1,873 @@
+
+案例练习,准备:
+            rht-vmctl  reset  classroom
+            rht-vmctl  reset  server
+	       rht-vmctl  reset  desktop
+########################################################################
+
+案例1:为虚拟机 server0 配置以下静态地址参数
+– 主机名:server0.example.com
+– IP地址:172.25.0.11
+– 子网掩码:255.255.255.0
+– 默认网关:172.25.0.254
+– DNS服务器:172.25.254.254
+[root@server0 ~]# nmcli connection modify 'System eth0' ipv4.method manual ipv4.addresses '172.25.0.11/24 172.25.0.254' connection.autoconnect yes
+[root@server0 ~]# nmcli connection up 'System eth0' 
+[root@server0 ~]# echo nameserver 172.25.254.254 > /etc/resolv.conf 
+[root@server0 ~]# nslookup server0.example.com
+
+
+案例2:为虚拟机 desktop0 配置以下静态地址参数
+– 主机名:desktop0.example.com
+– IP地址:172.25.0.10
+– 子网掩码:255.255.255.0
+– 默认网关:172.25.0.254
+– DNS服务器:172.25.254.254
+[root@desktop0 ~]# nmcli connection modify 'System eth0' ipv4.method manual ipv4.addresses '172.25.0.10/24 172.25.0.254' ipv4.nds ' 172.25.254.254' connection.autoconnect yes
+[root@desktop0 ~]# nslookup desktop0.example.com
+
+
+案例3:指定yum软件源
+为 server0 指定可用的 yum 软件源
+– YUM软件库的地址为 http://classroom.example.com/content/rhel7.0/x86_64/dvd
+– 将此配置为虚拟机 server0 的默认软件仓库
+– 确认可用的仓库列表
+– 利用yum仓库安装httpd与vsftpd
+[root@server0 ~]# rm -rf /etc/yum.repos.d/*
+[root@server0 ~]# vim /etc/yum.repos.d/nsd.repo
+
+     [rhel7]
+     name=rhel 7.0
+     baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/
+     enabled=1
+     gpgcheck=0
+
+[root@server0 ~]# yum repolist 
+[root@server0 ~]# yum -y install httpd 
+[root@server0 ~]# yum -y install vsftpd
+
+案例4:指定yum软件源
+为 desktop0 指定可用的 yum 软件源
+– YUM软件库的地址为 http://classroom.example.com/content/rhel7.0/x86_64/dvd
+– 将此配置为虚拟机 server0 的默认软件仓库
+– 确认可用的仓库列表
+– 利用yum仓库安装httpd与vsftpd
+[root@desktop0 ~]# rm -rf /etc/yum.repos.d/*
+[root@desktop0 ~]# vim /etc/yum.repos.d/nsd.repo
+
+     [thel7]
+     name=rehl 7.0
+     baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/
+     enabled=1
+     gpgcheck=0
+
+[root@desktop0 ~]# yum repolist  	 	
+[root@desktop0 ~]# yum -y install httpd
+[root@desktop0 ~]# yum -y install vsftpf
+
+
+案例5：虚拟机 server0上操作，复制、粘贴、移动
+ 以root用户新建/nsddir/目录，在此目录下新建readme.txt文件，并进一步完成下列操作
+[root@server0 ~]# mkdir /nsddir
+[root@server0 ~]# touch /nsddir/readme.txt
+
+ 1）将“I love Linux”写入到文件readme.txt 
+
+[root@server0 ~]# echo I love Linux > /nsddir/readme.txt
+[root@server0 ~]# cat /nsddir/readme.txt
+I love Linux
+
+ 2）将readme.txt重命名为mylove.txt
+[root@server0 ~]# mv /nsddir/readme.txt /nsddir/mylove.txt
+[root@server0 ~]# ls /nsddir
+mylove.txt
+
+ 3）将/etc/passwd、/boot、/etc/group同时拷贝到/nsddir目录下
+[root@server0 ~]# cp -r /etc/passwd /boot/ /etc/group /nsddir/
+[root@server0 ~]# ls /nsddir/
+boot  group  mylove.txt  passwd
+
+ 4）将ifconfig命令的前两行内容，追加写入mylove.txt
+[root@server0 ~]# ifconfig | head -2 >> /nsddir/mylove.txt 
+[root@server0 ~]# cat /nsddir/mylove.txt
+I love Linux
+eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 172.25.0.11  netmask 255.255.255.0  broadcast 172.25.0.255
+
+ 5）将主机名永久配置文件，拷贝到/nsddir目录下
+[root@server0 ~]# cp /etc/hostname /nsddir/
+
+ 6）将DNS永久配置文件，拷贝到/nsddir目录下
+[root@server0 ~]# cp /etc/resolv.conf /nsddir/
+
+
+
+案例6:虚拟机 server0上操作，查找并处理文件
+– 利用find查找所有用户 student 拥有的文件,把它们拷贝到 /root/findfiles/ 文件夹中
+[root@server0 ~]# mkdir /root/findfiles
+[root@server0 ~]# find / -user student -type f -exec cp {} /root/findfiles \;
+
+– 利用find查找/boot目录下大于10M并且必须是文件，拷贝到/opt
+[root@server0 ~]# find /boot/ -size +10M -type f -exec cp {} /opt/ \;
+
+– 利用find查找/boot/ 目录下以 vm 开头且必须是文件，拷贝到/opt
+[root@server0 ~]# find /boot/ -name 'vm*' -type f -exec cp {} /opt/ \;
+
+
+案例7:虚拟机 server0上操作,查找并提取文件内容
+1.在文件 /usr/share/dict/words 中查找到所有包含字符串 seismic 的行,将输出信息,写入到/opt/nsd.txt
+[root@server0 ~]# grep 'seismic' /usr/share/dict/words >> /opt/nsd.txt
+
+2.将/etc/login.defs文件以“#”开头的内容 写入到/root/login.txt
+[root@server0 ~]# grep '^#' /etc/login.defs  >> /root/login.txt
+[root@server0 ~]# cat /root/login.txt
+
+3.提取/etc/passwd以root开头的行，将其信息写入/opt/admin.txt
+[root@server0 ~]# grep '^root' /etc/passwd >> /opt/admin.txt
+[root@server0 ~]# cat /opt/admin.txt
+root:x:0:0:root:/root:/bin/bash
+
+案例8:虚拟机 server0上操作,tar制作/释放归档压缩包（zcf、ztf、zxf、jcf、jtf、jxf、cf、tf）
+    1）备份/boot、/home这两个文件夹，保存为boothome.tar.gz文件
+[root@server0 ~]# tar -zPcf boothome.tar.gz /boot/ /home/
+[root@server0 ~]# ls 
+anaconda-ks.cfg  Desktop    Downloads  login.txt  Pictures  Templates
+boothome.tar.gz  Documents  findfiles  Music      Public    Videos
+
+    2）查看boothome.tar.gz文件内包含哪些内容 
+[root@server0 ~]# tar -tf boothome.tar.gz 
+
+    3）将boothome.tar.gz释放到文件夹/root/boothome/下
+[root@server0 ~]# mkdir /root/boothome
+[root@server0 ~]# tar -xf /root/boothome.tar.gz -C /root/boothome
+tar: 从成员名中删除开头的“/”
+[root@server0 ~]# ls /root/boothome
+boot  home
+
+    4）创建一个名为 /root/backup.tar.bz2 的归档文件，其中包含 /usr/local 目录中的内容
+[root@server0 ~]# tar -jPcf /root/backup.tar.bz2 /usr/local/
+
+案例9:虚拟机 server0上操作
+	? 新建用户 alex，其用户ID为3456，密码是flectrag 
+[root@server0 ~]# useradd -u 3456 alex
+[root@server0 ~]# id alex
+uid=3456(alex) gid=3456(alex) 组=3456(alex)
+[root@server0 ~]# echo flectrag | passwd --stdin alex
+更改用户 alex 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+	? 创建下列用户、组以及组的成员关系： 
+	 – 一个名为 adminuser 的组 
+[root@server0 ~]# groupadd adminuser
+[root@server0 ~]# grep adminuser /etc/group
+adminuser:x:3457:
+
+	 – 一个名为 natasha 的用户，其属于 adminuser 组， 这个组是该用户的从属组 
+[root@server0 ~]# useradd -G adminuser natasha
+[root@server0 ~]# id natasha
+uid=3457(natasha) gid=3458(natasha) 组=3458(natasha),3457(adminuser)
+
+	 – 一个名为 harry 的用户，其属于 adminuser 组，这个 组是该用户的从属组 
+[root@server0 ~]# useradd -G adminuser harry
+[root@server0 ~]# id harry
+uid=3458(harry) gid=3459(harry) 组=3459(harry),3457(adminuser)
+
+	 – 一个名为 sarah 的用户，其在系统中没有可交互的 Shell（/sbin/nologin），并且不是 adminuser 组的成员 
+[root@server0 ~]# useradd -s /sbin/nologin sarah 
+[root@server0 ~]# id sarah
+uid=3459(sarah) gid=3460(sarah) 组=3460(sarah)
+[root@server0 ~]# grep sarah /etc/passwd
+sarah:x:3459:3460::/home/sarah:/sbin/nologin
+
+	 – natasha 、harry、sarah 的密码都要设置为 flectra
+[root@server0 ~]# echo flectra | passwd --stdin natasha
+更改用户 natasha 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+[root@server0 ~]# echo flectra | passwd --stdin harry
+更改用户 harry 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+[root@server0 ~]# echo flectra | passwd --stdin sarah
+更改用户 sarah 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+ 
+案例10:虚拟机 server0上操作
+    为用户 natasha 配置一个定时任务 
+	– 每天在本地时间 14:23 执行 
+	– 需要完成的任务操作为 /bin/echo  hiya
+[root@server0 ~]# crontab -e -u natasha
+23 14 * * * /bin.echo hiya
+
+案例11:虚拟机 server0上操作
+	将文件 /etc/fstab 拷贝为 /var/tmp/fstab，并调整文件 /var/tmp/fstab权限 
+[root@server0 ~]# cp /etc/fstab /var/tmp/
+[root@server0 ~]# ls /var/tmp/
+
+	满足以下要求：
+	– 此文件的拥有者是 root 
+	– 此文件属于 root 组 
+[root@server0 ~]# ls -ld /var/tmp/fstab 
+-rw-r--r--. 1 root root 313 2月  23 10:37 /var/tmp/fstab
+[root@server0 ~]# chown root:root /var/tmp/fstab
+
+	– 此文件对任何人都不可执行 
+[root@server0 ~]# chmod u-x,g-x,o-x /var/tmp/fstab 
+[root@server0 ~]# ls -ld /var/tmp/fstab
+-rw-r--r--. 1 root root 313 2月  23 10:37 /var/tmp/fstab
+
+	– 用户 natasha 能够对此文件执行读和写操作 
+[root@server0 ~]# setfacl -m u:natasha:rw /var/tmp/fstab 
+[root@server0 ~]# getfacl /var/tmp/fstab 
+
+	– 用户 harry 对此文件既不能读，也不能写 
+[root@server0 ~]# setfacl -m u:harry:--- /var/tmp/fstab 
+[root@server0 ~]# getfacl /var/tmp/fstab
+
+	– 所有其他用户（当前的和将来的）能够对此文件进行 读操作
+[root@server0 ~]# chmod o+t /var/tmp/fstab 
+[root@server0 ~]# ls -ld /var/tmp/fstab
+-rw-rw-r-T+ 1 root root 313 2月  23 10:37 /var/tmp/fstab
+
+案例12:虚拟机 server0上操作
+	创建一个共用目录 /home/admins，要求如下：
+[root@server0 ~]# mkdir /home/admins
+ 
+	 – 此目录的组所有权是 adminuser 
+[root@server0 ~]# ls -ld /home/admins/
+drwxr-xr-x. 2 root adminuser 6 2月  23 11:00 /home/admins/
+
+	 – adminuser 组的成员对此目录有读写和执行的权限，除此以外的其他所有用户没有任何权限
+[root@server0 ~]# chmod g+rwx,o-rwx /home/admins/
+[root@server0 ~]# ls -ld /home/admins/
+drwxrwx---. 2 root adminuser 6 2月  23 11:00 /home/admins/
+
+	 – root用户能够访问系统中的所有文件和目录 
+	 – 在此目录中创建的文件，其组的所有权会自动设置为 属于 adminuser 组
+[root@server0 ~]# chmod g+s /home/admins/
+[root@server0 ~]# ls -ld /home/admins/
+drwxrws---. 2 root adminuser 6 2月  23 11:00 /home/admins/
+
+
+案例13：虚拟机 server0上操作,绑定到LDAP验证服务
+
+ –  使用系统 classroom.example.com 提供的LDAP服务
+[root@server0 ~]# yum -y install sssd
+
+ –  验证服务的基本DN是：dc=example,dc=com
+[root@server0 ~]# yum -y install authconfig-gtk.x86_64 
+[root@server0 ~]# authconfig-gtk 
+
+ –  账户信息和验证信息都是由 LDAP 提供的
+ –  连接要使用证书加密，证书可以在下面的链接下载：
+      http://classroom.example.com/pub/example-ca.crt 
+ –  确认本地可以识别ldapuser10用户
+[root@server0 ~]# systemctl restart sssd
+[root@server0 ~]# systemctl enable sssd
+[root@server0 ~]# id ldapuser10
+uid=1710(ldapuser10) gid=1710(ldapuser10) 组=1710(ldapuser10)
+
+
+案例14：虚拟机 server0上操作,访问NFS共享
+ –  查看classroom.example.com的NFS共享
+ –  将classroom.example.com的NFS共享目录，挂载到本地/home/guests
+[root@server0 ~]# showmount -e classroom.example.com
+Export list for classroom.example.com:
+/home/guests 172.25.0.0/255.255.0.0
+[root@room9pc01 ~]# mkdir /home/guests
+[root@room9pc01 ~]# mount  classroom.example.com:/home/guests/ /home/guests/
+[root@room9pc01 ~]# ls /home/guests/
+ldapuser0   ldapuser12  ldapuser16  ldapuser2   ldapuser5  ldapuser9
+ldapuser1   ldapuser13  ldapuser17  ldapuser20  ldapuser6
+ldapuser10  ldapuser14  ldapuser18  ldapuser3   ldapuser7
+ldapuser11  ldapuser15  ldapuser19  ldapuser4   ldapuser8
+
+
+案例15:虚拟机 server0上操作,（MBR分区模式）规划分区
+ 添加一块70G的硬盘并规划分区：
+[root@server0 ~]# lsblk
+NAME   MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+vda    253:0    0  10G  0 disk 
+└─vda1 253:1    0  10G  0 part /
+vdb    253:16   0  10G  0 disk 
+vdc    253:32   0  70G  0 disk 
+
+   划分2个10G的主分区；
+   1个12G的主分区
+   2个10G的逻辑分区。
+[root@server0 ~]# fdisk /dev/vdc
+[root@server0 ~]# lsblk
+NAME   MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+vda    253:0    0  10G  0 disk 
+└─vda1 253:1    0  10G  0 part /
+vdb    253:16   0  10G  0 disk 
+vdc    253:32   0  70G  0 disk 
+├─vdc1 253:33   0  10G  0 part 
+├─vdc2 253:34   0  10G  0 part 
+├─vdc3 253:35   0  12G  0 part 
+├─vdc4 253:36   0   1K  0 part 
+├─vdc5 253:37   0  10G  0 part 
+└─vdc6 253:38   0  10G  0 part 
+
+
+案例16:在server上操作,分区使用
+
+1、案例14中新添加70G硬盘的第二个逻辑分区
+– 格式化成xfs分区，实现该分区开机自动挂载/mnt/xpart
+[root@server0 ~]# mkdir /mnt/xpart
+[root@server0 ~]# mkfs.xfs /dev/vdc6
+[root@server0 ~]# blkid /dev/vdc6
+/dev/vdc6: UUID="402b5e13-f8f7-410f-8e59-311ec0d9b7ea" TYPE="xfs"
+[root@server0 ~]# vim /etc/fstab 
+/dev/vdc6 /mnt/xpart    xfs     defaults        0 0 
+[root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+文件系统              容量  已用    可用   已用% 挂载点
+/dev/vda1        10G  3.4G  6.7G   34% /
+devtmpfs        906M     0  906M    0% /dev
+tmpfs           921M   80K  921M    1% /dev/shm
+tmpfs           921M   17M  904M    2% /run
+tmpfs           921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc6        10G   33M   10G    1% /mnt/xpart
+
+2、案例14中新添加70G硬盘的第一个逻辑分区
+– 完成开机自动挂载，挂载点/mnt/mypart,文件系统为ext4
+[root@server0 ~]# mkdir /mnt/mypart
+[root@server0 ~]# mkfs.ext4 /dev/vdc5
+[root@server0 ~]# blkid /dev/vdc5
+/dev/vdc5: UUID="217783dc-85b5-406c-986f-14efb3d8da96" TYPE="ext4" 
+[root@server0 ~]# vim /etc/fstab 
+/dev/vdc5 /mnt/mypart   ext4    defaults        0 0 
+root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+文件系统             容量  已用    可用    已用% 挂载点
+/dev/vda1        10G  3.4G  6.7G   34% /
+devtmpfs        906M     0  906M    0% /dev
+tmpfs           921M   80K  921M    1% /dev/shm
+tmpfs           921M   17M  904M    2% /run
+tmpfs           921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc6        10G   33M   10G    1% /mnt/xpart
+/dev/vdc5       9.8G   37M  9.2G    1% /mnt/mypart
+
+案例17:虚拟机 server0操作，构建 LVM 存储
+
+ – 新建一个名为 systemvg 的卷组 
+[root@server0 ~]# vgcreate systemvg /dev/vdc7
+  Physical volume "/dev/vdc7" successfully created
+  Volume group "systemvg" successfully created
+[root@server0 ~]# vgs
+  VG       #PV #LV #SN Attr   VSize  VFree 
+  systemvg   1   0   0 wz--n- 10.00g 10.00g
+
+ – 在此卷组中创建一个名为 vo 的逻辑卷，大小为8G d
+[root@server0 ~]# lvcreate -L 8G -n vo systemvg
+  Logical volume "vo" created
+[root@server0 ~]# lvs
+  LV   VG       Attr       LSize Pool Origin Data%  Move Log Cpy%Sync Convert
+  vo   systemvg -wi-a----- 8.00g 
+
+ – 将逻辑卷 vo 格式化为 xfs 文件系统 
+[root@server0 ~]# mkfs.xfs /dev/systemvg/vo 
+[root@server0 ~]# blkid /dev/systemvg/vo
+/dev/systemvg/vo: UUID="a9309763-396b-4e68-99ae-f962e3904264" TYPE="xfs"
+
+ – 将逻辑卷 vo 挂载到 /vo 目录，并在此目录下建立一个测试文件 votest.txt，内容为“I AM KING.” 
+[root@server0 ~]# mount /dev/systemvg/vo /vo
+[root@server0 ~]# df -h
+文件系统                 容量  已用  可用 已用% 挂载点
+/dev/vda1                 10G  3.4G  6.7G   34% /
+devtmpfs                 906M     0  906M    0% /dev
+tmpfs                    921M   80K  921M    1% /dev/shm
+tmpfs                    921M   17M  904M    2% /run
+tmpfs                    921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc6                 10G   33M   10G    1% /mnt/xpart
+/dev/vdc5                9.8G   37M  9.2G    1% /mnt/mypart
+/dev/mapper/systemvg-vo  8.0G   33M  8.0G    1% /vo
+[root@server0 ~]# echo I AM KING >> /vo/votest.txt
+[root@server0 ~]# ls /vo
+votest.txt
+
+ – 实现逻辑卷vo开机自动挂载到/vo
+[root@server0 ~]# vim /etc/fstab 
+    /dev/systemvg/vo        /vo     xfs     defaults        0       0
+[root@server0 ~]# umount /vo
+[root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+文件系统                 容量  已用  可用 已用% 挂载点
+/dev/vda1                 10G  3.4G  6.7G   34% /
+devtmpfs                 906M     0  906M    0% /dev
+tmpfs                    921M   80K  921M    1% /dev/shm
+tmpfs                    921M   17M  904M    2% /run
+tmpfs                    921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc6                 10G   33M   10G    1% /mnt/xpart
+/dev/vdc5                9.8G   37M  9.2G    1% /mnt/mypart
+/dev/mapper/systemvg-vo  8.0G   33M  8.0G    1% /vo
+[root@server0 ~]# ls /vo
+votest.txt
+
+
+案例18:虚拟机 server0操作，构建 LVM 存储(修改PE大小)
+ – 在 datastore 卷组中的所有逻辑卷，其PE的大小为1M
+[root@server0 ~]# vgcreate datastore /dev/vdc8
+  Physical volume "/dev/vdc8" successfully created
+  Volume group "datastore" successfully created
+[root@server0 ~]# vgs
+  VG        #PV #LV #SN Attr   VSize  VFree
+  datastore   1   0   0 wz--n-  7.99g 7.99g
+  systemvg    1   1   0 wz--n- 10.00g 2.00g
+[root@server0 ~]# vgchange -s 1M datastore 
+  Volume group "datastore" successfully changed
+[root@server0 ~]# vgdisplay datastore 
+  --- Volume group ---
+  VG Name               datastore
+  System ID             
+  Format                lvm2
+  Metadata Areas        1
+  Metadata Sequence No  2
+  VG Access             read/write
+  VG Status             resizable
+  MAX LV                0
+  Cur LV                0
+  Open LV               0
+  Max PV                0
+  Cur PV                1
+  Act PV                1
+  VG Size               7.99 GiB
+  PE Size               1.00 MiB
+  Total PE              8184
+  Alloc PE / Size       0 / 0   
+  Free  PE / Size       8184 / 7.99 GiB
+  VG UUID               Jd6jp2-IOgO-dv0P-JsvV-UZCQ-cVyD-Aky7BM
+
+ – 新的逻辑卷命名为 database，其大小为59个PE的大小，属于 datastore 卷组 
+[root@server0 ~]# lvcreate -l 59 -n database datastore
+  Logical volume "database" created
+[root@server0 ~]# lvs
+  LV       VG        Attr       LSize  Pool Origin Data%  Move Log Cpy%Sync Convert
+  database datastore -wi-a----- 59.00m                                             
+  vo       systemvg  -wi-ao----  8.00g  
+
+ – 使用 EXT4 文件系统对逻辑卷 database 格式化，此逻辑卷应该在开机时自动挂载到 /mnt/database 目录
+ [root@server0 ~]# mkfs.xfs /dev/datastore/database
+[root@server0 ~]# blkid /dev/datastore/database
+/dev/datastore/database: UUID="8b75342d-319c-4577-b74a-88c659bec3f5" TYPE="xfs"
+[root@server0 ~]# mkdir /mnt/database
+[root@server0 ~]# vim /etc/fstab 
+     /dev/datastore/database         /mnt/database   xfs     defaults        0       0
+[root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+文件系统                        容量  已用  可用 已用% 挂载点
+/dev/vda1                        10G  3.4G  6.7G   34% /
+devtmpfs                        906M     0  906M    0% /dev
+tmpfs                           921M   80K  921M    1% /dev/shm
+tmpfs                           921M   17M  904M    2% /run
+tmpfs                           921M     0  921M    0% /sys/fs/cgroup
+/dev/vdc6                        10G   33M   10G    1% /mnt/xpart
+/dev/vdc5                       9.8G   37M  9.2G    1% /mnt/mypart
+/dev/mapper/systemvg-vo         8.0G   33M  8.0G    1% /vo
+/dev/mapper/datastore-database   56M  3.1M   53M    6% /mnt/database
+
+
+
+案例19:在在 server0、desktop0 上操作
+– 将防火墙默认区域设置为trusted
+[root@server0 ~]# firewall-cmd --set-default-zone=trusted 
+success
+[root@server0 ~]# firewall-cmd --get-default-zone 
+trusted
+
+[root@desktop0 ~]# firewall-cmd --set-default-zone=trusted 
+success
+[root@desktop0 ~]# firewall-cmd --get-default-zone
+trusted
+
+
+
+
+案例20:在server上操作,在trusted区域，验证端口转发策略
+– 从desktop0上访问server0的5423端口，与访问server0的80端口效果一样
+[root@server0 ~]# firewall-cmd --zone=trusted --add-forward-port=port=5423:proto=tcp:toport=80
+success
+
+
+案例21:在server上操作，搭建mariadb数据库系统
+ 1. 在 server0 上安装 MariaDB 数据库系统
+   1)安装 mariadb-server软件包
+   2)启动 mariadb 服务
+[root@server0 ~]# yum -y install mariadb-server.x86_64 
+[root@server0 ~]# systemctl restart mariadb
+
+
+案例22：配置聚合连接
+在两个虚拟机之间配置一个链路，要求如下：
+[root@server0 ~]# nmcli connection add type team con-name team0 ifname team0 config '{"runner": {"name": "activebackup"}}'
+Connection 'team0' (8cfca4ee-5cfd-45a6-8b8b-129d4f9768aa) successfully added.
+[root@server0 ~]# nmcli connection add type team-slave con-name team0-1 ifname eth1 master team0
+Connection 'team0-1' (cd93a23e-dac1-4a1c-951e-48f4bca7644a) successfully added.
+[root@server0 ~]# nmcli connection add type team-slave con-name team0-2 ifname eth2 master team0
+Connection 'team0-2' (8d000386-29c4-41e4-ae44-f384aaad43e0) successfully added.
+[root@server0 ~]# nmcli connection modify 'team0' ipv4.method manual ipv4.addresses '172.16.3.20/24' connection.autoconnect yes
+[root@server0 ~]# nmcli connection up team0
+[root@server0 ~]# nmcli connection up team0-1
+[root@server0 ~]# nmcli connection up team0-2
+[root@server0 ~]# teamdctl team0 state
+
+
+	– 此链路使用接口 eth1 和 eth2 
+	– 此链路在其中一个接口失效时仍然能工作 
+	– 此链路在 server0 上使用下面的地址 172.16.3.20/255.255.255.0 
+	– 此链路在 desktop0 上使用下面的地址 172.16.3.25/255.255.255.0 
+	– 此链路在系统重启之后依然保持正常状态
+
+[root@desktop0 ~]# nmcli connection add type team con-name team0 ifname team0 config '{"runner": {"name": "activebackup" }}'
+Connection 'team0' (0c7dfe9f-81ac-4130-9caf-39df1e9a4a42) successfully added.
+[root@desktop0 ~]# nmcli connection add type team-slave con-name team0-1 ifname eth1 master team0
+Connection 'team0-1' (4fde5c8b-4939-45b3-b1ef-151bc86cad67) successfully added.
+[root@desktop0 ~]# nmcli connection add type team-slave con-name team0-2 ifname eth2 master team0
+Connection 'team0-2' (0dd63ef6-8825-4773-aa00-7fadf468eff6) successfully added.
+[root@desktop0 ~]# nmcli connection modify 'team0' ipv4.method manual ipv4.addresses '172.16.3.25/24' connection.autoconnect yes
+[root@server0 ~]# nmcli connection up team0
+[root@server0 ~]# nmcli connection up team0-1
+[root@server0 ~]# nmcli connection up team0-2
+[root@desktop0 ~]# teamdctl team0 state
+
+
+案例23:配置Samba文件夹共享，防火墙默认区域设置为trusted，修改SElinux状态为Enforcing
+[root@server0 ~]# setenforce 1
+[root@server0 ~]# getenforce 
+Enforcing
+[root@server0 ~]# firewall-cmd --set-default-zone=trusted
+[root@server0 ~]# firewall-cmd --get-default-zone 
+trusted
+[root@localhost ~]# yum -y install samba
+[root@localhost ~]# mkdir /devops
+
+在 server0 上发布共享文件夹
+ 1）此服务器必须是 STAFF 工作组的一个成员 
+ 2）发布目录 /devops，共享名为 devops 
+ 5）用户 harry 对共享 devops可读可写，密码是 123
+[root@localhost ~]# pdbedit -a harry
+[root@localhost ~]# vim /etc/samba/smb.conf   
+        [devops]
+        path = /devops
+        write list = harry
+[root@server0 ~]# systemctl restart smb
+[root@server0 ~]# setfacl -m u:harry:rwx /devops
+[root@server0 ~]# getfacl /devops/
+[root@server0 ~]# setsebool samba_export_all_ro on
+[root@server0 ~]# setsebool samba_export_all_rw on
+
+
+在 desktop0 上访问共享文件夹
+
+ 1）访问 server0 上发布共享文件夹,实现开机自动挂载到/mnt/smb
+ 2）实现对/mnt/smb目录可以读和写
+[root@desktop0 ~]# yum -y install cifs-utils
+[root@desktop0 ~]# mkdir /mnt/smb
+[root@desktop0 ~]# mount -o user=harry,pass=123 //172.25.0.11/devops /mnt/smb
+[root@desktop0 ~]# vim /etc/fstab 
+
+    //172.25.0.11/devops /mnt/smb cifs defaults,user=harry,pass=123,_netdev 0 0
+[root@desktop0 ~]# umount /mnt/smb/
+[root@desktop0 ~]# mount -a
+[root@desktop0 ~]# df -h
+文件系统              容量  已用  可用 已用% 挂载点
+/dev/vda1              10G  3.0G  7.0G   31% /
+devtmpfs              906M     0  906M    0% /dev
+tmpfs                 921M   80K  921M    1% /dev/shm
+tmpfs                 921M   17M  904M    2% /run
+tmpfs                 921M     0  921M    0% /sys/fs/cgroup
+//172.25.0.11/devops   10G  3.1G  7.0G   31% /mnt/smb
+
+
+
+
+案例24：chmod权限设置
+    1）以root用户新建/nsddir/目录，在该目录下新建文件readme.txt
+[root@server0 ~]# mkdir /nsddir
+[root@server0 ~]# touch /nsddir/readme.txt
+
+    2）使用户zhangsan能够在/nsddir/目录下创建/删除子目录
+[root@server0 ~]# setfacl -m u:zhangsan:rwx /nsddir/
+
+    3）使用户zhangsan能够修改/nsddir/readme.txt文件的容
+[root@server0 ~]# setfacl -m u:zhangsan:rw /nsddir/readme.txt  
+
+ 
+案例25：chown归属设置
+[root@server0 ~]# useradd gelin01
+[root@server0 ~]# useradd gelin02
+[root@server0 ~]# groupadd tarena
+
+    1）新建/tarena1目录
+[root@server0 ~]# mkdir /tarenal
+
+	a）将属主设为gelin01，属组设为tarena组
+[root@server0 ~]# chown gelin01:tarena /tarenal
+[root@server0 ~]# ls -ld /tarenal/
+drwxr-xr-x. 2 gelin01 tarena 6 2月  23 16:32 /tarenal/
+
+	b）使用户gelin01对此目录具有rwx权限，其他人对此目录无任何权限
+[root@server0 ~]# chmod 700 /tarenal/
+[root@server0 ~]# ls -ld /tarenal/
+drwx------. 2 gelin01 tarena 6 2月  23 16:32 /tarenal/
+
+    2）使用户gelin02能进入、查看/tarena1文件夹（提示：将gelin02加入所属组）
+[root@server0 ~]# gpasswd -a gelin02 tarena
+正在将用户“gelin02”加入到“tarena”组中
+[root@server0 ~]# chmod g+rx /tarenal/
+[root@server0 ~]# ls -ld  /tarenal/
+drwxr-x---. 2 gelin01 tarena 6 2月  23 16:32 /tarenal/
+
+    3）新建/tarena2目录
+[root@server0 ~]# mkdir /tarena2
+
+	a）将属组设为tarena
+[root@server0 ~]# chown :tarena /tarena2
+[root@server0 ~]# ls -ld /tarena2
+drwxr-xr-x. 2 root tarena 6 2月  23 16:42 /tarena2
+
+	b）使tarena组的任何用户都能在此目录下创建、删除文件
+[root@server0 ~]# chmod g+rwx /tarena2
+[root@server0 ~]# ls -ld /tarena2
+drwxrwxr-x. 2 root tarena 6 2月  23 16:42 /tarena2
+
+    4）新建/tarena/public目录
+[root@server0 ~]# mkdir -p /tarena/public
+
+	a）使任何用户对此目录都有rwx权限
+[root@server0 ~]# chmod 777 /tarena/public
+
+	b）拒绝zhangsan进入此目录，对此目录无任何权限
+[root@server0 ~]# setfacl -m u:zhangsan:--- /tarena/public
+
+
+案例26:权限设置
+	1、创建文件夹/data/test,设置目录的访问权限，使所有者和所属组具备读写执行的权限；其他人无任何权限。
+[root@server0 ~]# mkdir -p /data/test
+[root@server0 ~]# chmod 770 /data/test
+[root@server0 ~]# ls -ld /data/test
+drwxrwx---. 2 root root 6 2月  23 16:48 /data/test
+
+	2、递归修改文件夹/data/test的归属使所有者为zhangsan，所属组为tarena。
+[root@server0 ~]# chown -R zhangsan:tarena /data
+[root@server0 ~]# ls -ld /data/
+drwxr-xr-x. 3 zhangsan tarena 17 2月  23 16:48 /data/
+[root@server0 ~]# ls -ld /data/test/
+drwxrwx---. 2 zhangsan tarena 6 2月  23 16:48 /data/test/
+
+	3、请实现在test目录下，新建的所有子文件或目录的所属组都会是tarena。
+[root@server0 ~]# chmod g+s /data/test/
+
+	4、为lisi创建ACL访问权限，使得lisi可以查看/etc/shadow文件
+[root@server0 ~]# useradd lisi
+[root@server0 ~]# setfacl -m u:lisi:r /etc/shadow
+
+
+案例27:grep基本用法
+    1）将当前主机的所有IP地址信息存入文件ipadd.txt
+[root@server0 ~]# ifconfig >> /root/ipadd.txt
+
+    2）去掉空行显示ipadd.txt文件内容 
+[root@server0 ~]# grep -v '^$' /root/ipadd.txt
+
+    3）复制/etc/login.defs文件到当前目录下，改名为init.txt
+[root@server0 ~]# cp /etc/login.defs  /root/init.txt
+
+	a）提取init.txt文件里的有效配置（去除以#号开头，去除空行），保存为init2.txt
+[root@server0 ~]# grep -v '^$' /root/init.txt  | grep -v '^#' >> /root/init2.txt
+
+案例28:tar制作/释放归档压缩包（zcf、ztf、zxf、jcf、jtf、jxf、cf、tf）
+    1）备份/boot、/home这两个文件夹，保存为boothome.tar.gz文件
+[root@server0 ~]# tar -zPcf /root/boothome.tar.gz /boot/ /home/
+
+    2）查看boothome.tar.gz文件内包含哪些内容 
+[root@server0 ~]# tar -tf /root/boothome.tar.gz 
+
+    3）将boothome.tar.gz释放到文件夹/root/boothome/下
+[root@server0 ~]# mkdir /root/boothome
+[root@server0 ~]# tar -xf /root/boothome.tar.gz  -C /root/boothome
+
+    4）备份/usr/sbin目录，保存为usrsbin.tar.bz2文件
+[root@server0 ~]# tar -jPcf /root/usrsbin.tar.bz2 /usr/sbin
+
+    5）查看usrsbin.tar.bz2文件内包含哪些内容
+[root@server0 ~]# tar -tf /root/usrsbin.tar.bz2 
+
+    6）将usrsbin.tar.bz2释放到/root/usrsbin/文件夹下
+[root@server0 ~]# tar -xf /root/usrsbin.tar.bz2  -C /root/usrsbin
+
+
+案例29：添加并测试用户账号
+    1）创建一个名为stu01的用户账号
+[root@server0 ~]# useradd stu01
+
+    2）检查/etc/passwd、/etc/shadow文件的最后一行
+[root@server0 ~]# tail -1 /etc/passwd
+stu01:x:1006:1008::/home/stu01:/bin/bash
+[root@server0 ~]# tail -1 /etc/shadow
+stu01:!!:17585:0:99999:7:::
+
+    3）检查/home/新增加的宿主目录（家目录）
+[root@server0 ~]# ls /home/
+gelin01  gelin02  harry  lisi  stu01  student  zhangsan
+
+    4）为用户stu01设置一个密码（123456）
+[root@server0 ~]# echo 123456 | passwd --stdin stu01
+更改用户 stu01 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+
+案例30：添加账号时设置不同属性
+    1）新建用户nsd01，宿主目录位于/opt/nsd01
+[root@server0 ~]# useradd -d /opt/nsd01 nsd01
+[root@server0 ~]# tail -1 /etc/passwd
+nsd01:x:1007:1009::/opt/nsd01:/bin/bash
+
+    2）新建系统账号sys01，将UID设为1234，登录Shell设为/sbin/nologin
+[root@server0 ~]# useradd -u 1234 -s /sbin/nologin sys01
+[root@server0 ~]# grep 'sys01' /etc/passwd
+sys01:x:1234:1234::/home/sys01:/sbin/nologin
+
+    3）为用户sys01设置密码，并测试是否能够登录
+[root@server0 ~]# echo 123 | passwd --stdin sys01
+更改用户 sys01 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+    4）新建用户admin，将其基本组设为users，附加组设为adm、root
+[root@server0 ~]# useradd -g users -G adm,root yui
+
+
+案例31：passwd设置密码
+    1）给用户nsd01设置密码123456
+[root@server0 ~]# echo 123456 | passwd --stdin nsd01
+更改用户 nsd01 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+    2）采用--stdin方式将用户nsd01的密码设为654321
+[root@server0 ~]# echo 654321 | passwd --stdin nsd01
+更改用户 nsd01 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+案例32：usermod修改用户
+    1）新建一个用户nsd03，将宿主目录设为/opt/home03，并设置密码
+[root@server0 ~]# useradd -d /opt/home03 nsd03
+
+    2）设置nsd03密码为redhat
+[root@server0 ~]# echo redhat | passwd --stdin nsd03
+更改用户 nsd03 的密码 。
+passwd：所有的身份验证令牌已经成功更新。
+
+    3）将用户nsd03的宿主目录改为/home/nsd03
+[root@server0 ~]# usermod -d /home/nsd03 nsd03
+
+    4）将用户sys01的登录Shell改为/bin/bash
+[root@server0 ~]# usermod -s /sbin/nologin sys01
+
+案例33：组账号基本管理
+[root@server0 ~]# useradd user01
+
+    1）新建组账号stugrp
+[root@server0 ~]# groupadd stugrp
+
+    2）为stugrp组添加三个成员用户（user01、root、zhangsan）
+[root@server0 ~]# gpasswd -a user01 stugrp
+正在将用户“user01”加入到“stugrp”组中
+[root@server0 ~]# gpasswd -a root stugrp
+正在将用户“root”加入到“stugrp”组中
+[root@server0 ~]# gpasswd -a zhangsan stugrp
+正在将用户“zhangsan”加入到“stugrp”组中
+
+    3）从stugrp组删除一个成员（user01）
+[root@server0 ~]# gpasswd -d user01 stugrp
+正在将用户“user01”从“stugrp”组中删除
+
+案例34：配置NTP网络时间客户端
+[root@server0 ~]# yum -y install chrony
+
+	配置虚拟机 server0，自动校对系统时间
+	NTP服务器位于 classroom.example.com 
+	此客户机的时间与NTP服务器的时间保持同步
+[root@server0 ~]# vim /etc/chrony.conf 
+[root@server0 ~]# systemctl restart chrony
+[root@server0 ~]# systemctl enable chrony
+
+
+案例35：复制、删除、移动
+  1. 在目录/opt下创建一个子目录 nsd 
+[root@server0 ~]# mkdir /opt/nsd
+	
+  2. 在目录/opt/nsd/创建文件readme.txt,利用vim写入内容 I Love Linux
+[root@server0 ~]# touch /opt/nsd/readme.txt
+[root@server0 ~]# vim /opt/nsd/readme.txt
+I Love Linux
+
+  3. 将/etc/passwd 和 /etc/resolv.conf同时拷贝到/opt/nsd目录下
+[root@server0 ~]# cp /etc/passwd  /etc/resolv.conf  /opt/nsd
+[root@server0 ~]# ls //opt/nsd
+passwd  readme.txt  resolv.conf
+
+  4. 将文件 /etc/redhat-release复制到 /root/ 下，同时 改名为 version.txt 
+[root@server0 ~]# cp /etc/redhat-release /root/version.txt
+[root@server0 ~]# ls /root
+anaconda-ks.cfg  Desktop    init2.txt  login.defs  Public     usrsbin.tar.bz2
+boothome         Documents  init.txt   Music       Templates  version.txt
+boothome.tar.gz  Downloads  ipadd.txt  Pictures    usrsbin    Videos
+
+  5. 将文件 /root/version.txt 移动到/opt/nsd/目录下 
+[root@server0 ~]# mv /root/version.txt /opt/nsd
+[root@server0 ~]# ls /opt/nsd
+passwd  readme.txt  resolv.conf  version.txt
+
+  6. 将/home目录复制到/opt/nsd/目录下 
+[root@server0 ~]# cp -r /home/ /opt/nsd
+[root@server0 ~]# ls /opt/nsd
+home  passwd  readme.txt  resolv.conf  version.txt
+
+案例36：ls命令练习
+  1. 查看根目录下内容
+[root@server0 ~]# ls /
+
+  2. 显示根目录本身内容详细属性
+[root@server0 ~]# ls -ld /
+drwxr-xr-x. 23 root root 4096 2月  23 16:48 /
+
+  3. 切换到/boot目录，显示当前目录内容的详细属性，并加上易读的容量单位
+[root@server0 ~]# cd /boot/
+[root@server0 boot]# ls -lh 
+
+  4. 显示/root的全部内容，包括隐藏文档
+[root@server0 ~]# ls -A /root/
+
+  5. 显示/bin/bash程序，详细属性
+[root@server0 ~]# ls -ld /bin/bash
+-rwxr-xr-x. 1 root root 960368 1月  29 2014 /bin/bash
+
+  6. 显示/dev/cdrom光驱设备，详细属性
+[root@server0 ~]# ls -ld /dev/cdrom
+
+
+
+案例37: vim文本编辑器练习，命令模式下的基本操作（重点知识）
+
+ 1）将/etc/passwd的前20行，写入到文件/opt/pass20.txt 
+ 2）将/etc/shadow的前10行,追加写入到文件/opt/pass20.txt 
+
+ 2）利用/opt/pass20.txt，进项如下操作：
+    – 命令模式下移动光标：键盘上下左右键、Home键、End键
+    – 命令模式下行间跳转：到全文的第一行（1G或gg）、到全文的最后一行（G）、到全文的第10行（10G）
+    
+    – 命令模式下复制、粘贴：
+    	 复制1行（yy）、复制3行（3yy）
+    	 粘贴到当前行之后（小写p）
+
+    – 命令模式下删除：
+    	 删除单个字符（x）
+    	 删除到行首（d^）、删除到行尾（d$）
+    	 删除1行（dd）、删除3行（3dd）
+         
+    
+    – 命令模式下查找关键词： 
+    	 搜索（/word）切换结果（n、N）
+
+    – 补充：在命令模式下大写的C，可以删除光标之后，并且进入输入模式
+
+

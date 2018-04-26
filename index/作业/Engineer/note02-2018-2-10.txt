@@ -1,0 +1,172 @@
+
+扩展案例02：
+ 请编写脚本/opt/useradd.sh，
+  实现的功能判断一个用户是否存在，存在则输出“用户已存在”，不存在则创建用户，并且输出该用户在/etc/passwd该行信息？
+
+ 提示：
+           利用read -p将用户输入的内容存放在变量user中，
+           在利用id命令判断变量user的值，是否能够显示用户信息
+           利用 $? 与 0比较，如果相等则用户存在，如果不等用户不存在
+
+[root@server0 ~]# cat /opt/useradd.sh
+ #!/bin/bash
+ read  -p   '请输入您要测试的用户:'   user
+ id $user  &>  /dev/null
+ if [  $?  -eq  0  ];then
+  echo  用户已存在
+ else
+  useradd $user
+  echo  $user用户创建成功
+  grep  $user  /etc/passwd
+ fi
+
+
+扩展案例01：
+  使用3个read读取用户输入的3个整数，脚本按照大小排序依次输出3个数字？
+
+ 提示：read –p 设置3个变量a,b,c
+ a和b对比大小，如果a小就不做任何处理
+ 如果a大，就把a和b的值对调
+ 这样做是确保a里存的是小的值，b里存的是大的值。
+ b和c对比大小，如果b小就不做特殊处理
+ 如果b大，就把b和c对调
+ 这样做确保b里存小的值，c里存大的值
+ 最后输出a,b,c
+
+     
+
+              让变量a永远储存三个数最小的
+              让变量c永远储存三个数最大的
+[root@server0 ~]# cat  /root/num.sh 
+#!/bin/bash
+ read  -p  '请输入第一个数字:'   a
+ read  -p  '请输入第二个数字:'   b
+ read  -p  '请输入第三个数字:'   c
+
+  if  [ $a -gt $b ];then
+          tmp=$a
+          a=$b
+          b=$tmp
+  fi
+
+  if  [ $a -gt $c ];then
+         num=$a
+         a=$c
+         c=$num
+  fi
+
+  if  [ $b -gt $c ];then
+      nsd=$b
+      b=$c
+      c=$nsd
+  fi
+  echo  $a----$b----$c
+
+##################################################################
+
+for循环处理
+
+ for  变量名  in  值列表
+   do
+      命令序列
+   done
+
+
+
+
+
+[root@server0 ~]# cat  /root/for.sh
+ #!/bin/bash
+ for i  in  zhangsan  lisi   wangwu   dc  haha   xixi   duanwu  zhongqiu
+ do
+   useradd  $i  &>  /dev/null
+   echo  $i创建成功
+ done
+
+
+[root@server0 ~]# cat  /root/for.sh
+ #!/bin/bash
+ for i  in  $(cat  /root/tarena.txt)
+ do
+   useradd  $i  &>  /dev/null
+   echo  $i创建成功
+ done
+
+#############################################################
+案例5:编写一个批量添加用户脚本
+在 server0 上创建 /root/batchusers 脚本
+1)此脚本要求提供用户名列表文件作为参数
+[root@server0 ~]# cat /root/tarena.txt
+
+2)如果没有提供参数,此脚本应该给出提示 
+Usage: /root/batchusers,退出并返回相应值
+
+3)如果提供一个不存在的文件,此脚本应该给出提
+示 Input file not found,退出并返回相应值
+
+4)新用户的登录Shell为 /bin/false,无需设置密码
+
+[root@server0 ~]# cat /root/tarena.txt  #书写一个用户名列表文件          
+
+[root@server0 ~]# vim /root/batchusers
+#!/bin/bash
+if [ $# -eq 0 ];then                      #判断是否输入参数
+ echo 'Usage: /root/batchusers' >&2   
+ exit 2
+elif [ -f $1  ];then                      #判断参数是否存在
+
+ for  i  in  $(cat $1)
+ do
+  useradd -s /bin/false $i &> /dev/null
+  echo $i 创建成功
+ done
+
+else
+ echo  Input file not found  >&2      #将正确输出改变性质为错误输出
+ exit 3
+fi
+
+[root@server0 ~]#  /root/batchusers  /root/tarena.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
