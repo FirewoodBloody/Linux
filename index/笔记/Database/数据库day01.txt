@@ -1,0 +1,352 @@
+
+
+老师邮箱: panglj@tedu.cn
+
+数据库管理  (内容多  命令多  理论多  课上联系时间少)
+
+数据库介绍：存储数据的仓库 192.168.4.51
+       方式：按照数据库的规则往仓库里存
+数据库服务在使用的公司：购物网站  游戏网站  金融网站
+数据库存储的数据是：帐号信息(用户名和密码)  游戏帐号信息 对应的数据信息
+提供数据库的软件：开源软件：mysql,mongodb,redis
+                   商业软件：oracle,db2,SQL SERVER
+软件是否跨平台 Linux
+            Windows SQL SERVER(只能装在Windows)
+            Unix
+    一般互联网公司用的是开源软件，国家企业用的是商业软件
+软件包的来源：官网下载  使用操作系统安装光盘自带的软件包
+
+
+mysql软件介绍
+   mysql  mariadb
+   关系型数据型软件  要按照一定的组织结构存储数据，数据和数据之间有关联(可以相互关联操作)   mysql
+
+   非关系型数据软件(NoSQL)mongodb、
+                      redis、memcached
+                key = 值   如：微信号 消息内容
+  可以跨平台
+  可移植性强
+          A主机-------->B主机
+  rpm包   源码包  拷贝  C  C++
+  支持多种开发语言Python/Java/Perl/Php
+   mysql的封包类型：rpm包  源码包(可以自定义安装信息 需要先安装依赖软件包)
+
+
+
+一、搭建数据库服务器 192.168.4.51
+     装包------->修改配置文件------->启动服务-------->查看服务进程和端口号
+     
+二、数据库服务的基本使用
+三、mysql数据类型
+ 
+
+一：
+1.卸载mariadb
+  #rpm -qa | grep -i mariadb
+  #(systemctl stop mariadb)
+  #rpm -e --nodeps mariadb-server mariadb
+  #rm -rf /etc/my.cnf
+  #rm -rf /var/lib/mysql
+2.安装mysql
+  #tar -xf mysql-5.7.17-1.el7.x86_64.rpm-bundle.tar
+  #ls *.rpm
+  #rm -rf mysql-community-server-minimal-5.7.17-1.el7.x86_64.rpm
+  #yum -y install perl-JSON
+  #rpm -Uvh mysql-community-*.rpm
+  #rpm -qa | grep -i mysql
+3.启动服务
+  #systemctl start mysqld
+
+服务名：mysqld
+主配置文件： /etc/my.cnf
+数据目录：/var/lib/mysql
+日志文件：/var/log/mysql.log
+查看服务进程和端口号：
+ps -C mysqld
+netstat -anuplt | grep mysqld
+
+生产环境中，数据服务和网站服务一起使用，构建网站运行平台
+LNMP LAMP
+
+二、
+1.使用初始密码在本纪连接数据库服务
+    mysql [-h数据库服务器ip] -uroot -p密码(当密码中有!<>等特殊符号时，应该用单引号引起来) [库名]
+    #grep password /var/log/mysql.log
+    #mysql -hlocalhost -uroot -p'PEGfooi,_5Au'   
+2.重置本机连接密码
+     >set global validate_password_policy=0;修改密码策略( 密码策略 0长度 1长度，字符 2长度，字符， )
+     >set global validate_password_length=6;修改密码长度
+     >alter user root@"localhost" identified by "123456";
+     >quit
+     #mysql -hlocalhost -uroot -p123456
+     >show databases;
+   设置mysql密码永久有效：
+   #vim /etcm/my.cnf
+   [mysql]
+   validate_password_policy=0
+   validate_password_length=6
+   :x
+   #systemctl stop mysqld
+   #systemctl start mysqld
+3.把数据存储在数据库服务器上的过程
+    连接数据库服务器(命令行  API   图形工具)
+    选择库(存放数据的文件夹)
+    选择表(就文件)
+
+4.sql命令分类
+     DDL   DML   DTL   DCL
+5.sql命令使用规则
+
+6.管理数据库的sql命令
+  库名的命令规则：数字，字母，下划线，不能纯数字
+                   区分字母大小写，具有唯一性(命令不区分大小写)
+                   不可使用指令的关键字，
+   查看  show databases;
+   创建  create database 库名；
+   切换  use 库名；
+   删除  drop database 库名；
+   当前所在的库  select database();
+   
+7.管理表的sql命令
+   查看  show tables;
+   创建  create table 库名.表名(
+             字段名 类型(宽度) 约束条件 , ------>一列 
+             字段名 类型(宽度) 约束条件 ,------>二列 
+             ``````
+               ); 
+               类型：字符char
+            如：创建一个表      姓名  地址  ````   ```` 
+          create table gamedb.stuinfo(
+             name  char(10) ,  
+             addr  char(20) 
+                 );
+   切换
+   删除  drop table  gamedb(库名).stuinfo(表名);  删除gamedb库下stuinfo表
+   查看表记录 select * from gamedb(库名).stuinfo(表明);  查看gamedb库下的stuinfo表 
+   查看表结构 decs gamedb.stuinfo;
+	
+8.管理记录的sql命令
+   查看  select * from 库名.表名;
+   插入  insert into 库名.表名 values(字段值列表);
+    insert into gamedb.stuinfo values("bob","beijing")
+ insert into nimeifu.t6(name,start_year) values("tom","69")
+ (可以给表中用户的特定的字段赋值)
+   修改  update 库名.表名 set 字段名=值 where 条件(字段名=值 等);
+      update gamedb.stuinfo set addr="shanghai" where name="tom"
+   删除  delete from 库名.表名
+
+mysql数据类型
+1. 数值类型 (成绩 年龄  工资)
+每种类型的存储数据的范围都是固定的
+整数类型(只能存储整数)
+类型   tinyint  smallint    mediumint    int         bigint   
+大小   1字节      2字节          3字节            4字节          8字节
+范围   
+有符号 -128~127   -32768~32767  -2^23~2^23-1    -2^31~2^31-1   -2^63~2^63-1
+无符号 0~255      0~65535       0~2^24-1        0~2^32-1       0~2^64-1
+用途   微笑整数   小整数         中整数           大整数         极大整数
+
+浮点型(只能存储小数)
+float  单精度浮点数  float(M,N) M：设置总位数；N：设置小数位位数
+double 双精度浮点数  double(M,N) 
+
+整数.小数    总位数     整数位     小数位
+18088.88       7          5           2         
+                                 
+unsigned   使用数据类型有符号的范围
+
+
+2.字符类型 (商品名称  籍贯  姓名  生产厂家)
+char(<=255)    固定长度字符类型    存储JIM 固定长度会自动在JIM后面补2个空格然后存储
+varchar(<=65532)  变化长度字符类型  存储JIM 变化长度不会自动在JIM后面补2个空格而是直接存储
+大文本类型(mp3,mp4,jpg)
+blob
+text
+3.日期时间类型 (注册时间  约会时间  开会时间  入职时间  生日)
+年      year      YYYY           2018
+日期    date      YYYYMMDD       20180423
+时间    time      HHMMSS         161958
+      datetime  YYYYMMDDHHMMSS  20180423161958
+
+获取日期时间给对应类型的字段赋值
+
+获取日期时间的命令(函数)
+now()             显示 select now();
+获取指定时间中的年
+year(日期时间)      显示 select year(20160305);
+year(now())        显示 select year(now());
+获取指定时间的月
+month(日期时间)     显示 select month(20160305);
+month(now())       显示 select month(now());
+获取指定时间的日
+day(日期时间)        显示 select day(20160305);
+day(now())         显示 select day(now());
+获取指定时间的时间
+time(日期时间)      显示 select time(20160305020506);
+time(now())         显示 select time(now());
+获取指定时间的年月日
+date(日期时间)       显示 select date(20160305020506);
+date(now())        显示 select date(now());
+
+可以使用两位数给year类型的字段赋值，规律如下：
+01~69   2001~2069
+70~99   1970~1999
+year字段范围：1901~2155
+date字段范围：0001-01-01~9999-12-31
+time字段范围：HH:MM:SS
+
+datetime与timestamp的区别
+(1).范围
+datetime 1000-01-01 00:00:00.000000~9999-12-31 23:59.999999
+timestamp 1970-01-01 00:00:00.000000~2038-01-19 03:14:07.999999
+(2).赋值方式
+  给timestamp单独赋值的时候，datetime自动补一个空
+  给datetime单独赋值的时候，timestamp自动赋一个now()的值
+
+4.枚举类型 (插入记录  时   记录的值  在列举的范围内选择)
+         性别   爱好   专业
+
+单选    enum(值列表)
+多选    set(值列表)
+
+enum("boy","girl","no")
+set("women","game","eat","money","film")
+
+decs 表名  查看表的类型信息
+
+
+==================================================
+insert into t6 values(
+"chaixuexin",
+"20",
+"150000",
+"chaixuexin@163.com",
+"19970608",
+"090909",
+"1997",
+"20151001231515"
+);
+
+insert into t6 values(
+"chaixuexin",
+"20",
+"150000",
+"chaixuexin@163.com",
+"data(now())",
+"time(now())",
+"year(19970608)",
+"now()"
+);
+
+
+让mysql支持中文：
+修改mysql配置文件/etc/my.cnf。
+
+[mysqld]
+character-set-server=utf8 
+[client]
+default-character-set=utf8 
+[mysql]
+default-character-set=utf8
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

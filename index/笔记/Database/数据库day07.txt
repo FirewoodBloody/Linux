@@ -1,0 +1,450 @@
+
+
+
+准备环境
+配置一主一从 主从同步结构
+
+主：51
+从：52
+
+
+
+一、数据对写分离
+1.1数据分离：把客户端访问数据时的查询请求和写请求分别给不同的数据库服务器处理
+
+1.2作用：减轻单台数据库服务器的并发访问压力
+          提高数据库服务器硬件利用率
+
+1.3实现数据读写分离的方式：
+1.3.1人肉分离：做不同的数据操作时，访问指定的数据库服务器
+1.3.2使用mysql中间件提供的服务实现：mycat   mysql-proxy   maxscale
+
+1.4使用中间件提供的服务器
+1.4.1单点故障
+1.4.2当访问量大时，会成为网络瓶经
+
+二、配置数据读写分离
+1.1拓扑结构
+                                        webuser  123456
+     client254    mysql -h192.168.4.56 -u用户名   -p密码
+           |
+           |
+           |
+      代理服务器56
+           |
+-------------------------------
+write       reaad
+   |              |
+master      slave    
+
+2.2配置数据读写分离
+2.2.1配置一主一从  主从同步结构，并在客户端测试配置
+master 51 >grant all on webdb.* to webuser@"%" identified by "123456";
+
+2.2.2配置数据读写分离服务器
+2.2.2.1环境准备
+setenforce 0
+systemctl stop firewall
+yum reoilist
+ping -c 2 192.168.4.51
+ping -c 2 192.168.4.52
+下载软件包maxscale-2.1.2-1.rhel.7.x86_64.rpm
+2.2.2.2配置数据读写分离服务器56
+装包
+
+maxscale-2.1.2-1.rhel.7.x86_64.rpm
+
+修改配置文件
+]#ls /etc/maxscale.cnf
+/etc/maxscale.cnf
+]#cp /etc/maxscale.cnf /etc/maxscale.cnf.bak (备份一个文件)
+
+
+]#vim /etc/maxscale.cnf
+9
+10
+
+#定义数据库服务器
+18 [server1]                (服务器名称)
+19 type=server
+20 address=192.168.4.51     (服务器ip地址)
+21 port=3306
+22 protocol=MYSQLBackend
+
+24 [server2]
+25 type=server
+26 address=192.168.4.52
+27 port=3306
+28 protocol=MYSQLBackend
+
+#定义监视的数据库服务器
+36 [MySQL Monitor]
+37 type=monitor
+38 module=mysqlmon
+39 servers=server1,server2
+40 user=scalemon               (监视数据库服务器时连接的用户名)
+41 passwd=123456               (密码)
+42 monitor_interval=10000      (毫秒)
+
+#指定只读的服务
+53 #[Read-Only Service]
+54 #type=service
+55 #router=readconnroute
+56 #servers=server1
+57 #user=myuser
+58 #passwd=mypwd
+59 #router_options=slave
+
+
+#指定读写分离服务
+64 [Read-Write Service]
+65 type=service
+66 router=readwritesplit
+67 servers=server1，server2     (服务器名称)
+68 user=maxscale                (验证连接代理服务访问数据库服务器的用户名 是否存在)
+69 passwd=123456                (密码)
+70 max_slave_connections=100%
+
+#定义管理服务
+76 [MaxAdmin Service]
+77 type=service
+78 router=cli
+
+#只读服务定义端口
+86 #[Read-Only Listener]
+87 #type=listener
+88 #service=Read-Only Service
+89 #protocol=MySQLClient
+90 #port=4008
+
+
+#定义读写服务使用的端口号
+92 [Read-Write Listener]
+93 type=listener
+94 service=Read-Write Service
+95 protocol=MySQLClient
+96 port=4006
+
+#定义管理服务使用的端口号
+98  [MaxAdmin Listener]
+99  type=listener
+100 service=MaxAdmin Service
+101 protocol=maxscaled
+102 socket=default
+    port=4018 #不设置使用的默认端口
+
+
+根据配置文件做相应的设置(在2台数据库服务器上添加用户)
+1.监控数据库服务器时，连接数据库服务器的用户
+> grant replication slave,replication client  on *.*  to scalemon@"%" identified by "123456";
+
+2.验证 访问数据时，连接数据库服务器使用的用户，是否在数据库服务器上存在的，连接用户
+> grant select on mysql.* to maxscale@"%" identified by "123456";
+
+3.查看授权用户
+>select user,host from mysql.user;
+
+启动服务
+]#maxscale -f /etc/maxscale.cnf
+]#netstat -anutlp | grep :4006
+]#ps -C maxscale
+
+
+停止服务
+]#kill -9 29688
+]#kill -9 29688
+进程不存在
+
+2.2.3测试配置
+]#which mysql
+no mysql
+]#yum -y install mariadb
+
+2.2.3.1在本机访问管理端口查看监控状态
+]#maxadmin -P端口号 -u用户名 -p密码
+]#maxadmin -P4018 -uadmin -pmariadb
+MaxScale>
+
+2.2.3.2客户端访问数据读写分离服务
+]#which mysql
+]#mysql -h读写分离服务ip -P4006 -u用户名 -p密码
+]#mysql -h192.168.4.56 -P4006 -uwebuser -p123456
+>select @@hostname
+>执行插入或查询
+
+二、mysql多实例
+1.介绍：在一台物理主机上运行多个数据库服务
+2.配置多实例
+2.1环境准备
+要求：在主机51上配置mysql多实例
+运行2个数据库服务
+
+第一个数据库服务  数据库目录 /dataone
+                   服务端口号 3307
+               sock文件 /dataone/mysqld.sock
+                   日志文件 /dataone/mysqld.log
+第二个数据库服务  数据库目录 /datatow
+                   服务端口号 3307
+               sock文件 /datatow/mysqld.sock
+                   日志文件 /datatow/mysqld.log
+
+2.2安装提供多实例服务mysql数据库服务软件
+ tar -zxf mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
+ mv mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz /usr/local/mysql
+ ls /usr/local/mysql
+ ls /usr/local/mysql/bin
+ echo "export PATH=/usr/local/mysql/bin:$PATH" >> /etc/profile
+ source /etc/profile
+ echo $PATH
+
+2.3编辑配置文件 /etc/my.cnf
+]#rm -rf /etc/my.cnf
+
+[mysqld_multi]
+mysqld=/usr/local/mysql/bin/mysql_safe
+mysqladmin=/usr/local/mysql/bin/mysqladmin
+user=root
+
+[mysqld1]
+port=3307    #端口
+datadir=/dataone   #数据库目录
+socket=/dataone/mysqld.sock        #sock文件目录 名字    本机访问本机的数据库，通过这个文件
+log-error=/dataone/mysqld.log      #日志文件目录
+pid-file=/dataone/mysqld.pid       #pid文件目录 名字
+
+[mysqld2]
+port=3307    #端口
+datadir=/datatwo   #数据库目录
+socket=/datatwo/mysqld.sock        #sock文件目录 名字    本机访问本机的数据库，通过这个文件
+log-error=/datatwo/mysqld.log      #日志文件目录
+pid-file=/datatwo/mysqld.pid       #pid文件目录 名字
+
+
+
+2.4根据配置文件的设置，做相应的配置
+2.4.1创建数据库目录 创建用户
+mkdir -p /dataone
+mkdir -p /datatwo
+useradd mysql
+chown mysql:mysql /data*
+
+2.4.2初始化授权库
+mysqld --user=mysql --basedir=/usr/local/mysql --datadir=/dataone --initialize
+                                   (软件安装目录) 
+2018-05-04T09:17:16.658314Z 1 [Note] A temporary password is generated for root@localhost: dY9C2h.yenue   root密码
+
+mysqld --user=mysql --basedir=/usr/local/mysql --datadir=/datatwo --initialize
+                                   (软件安装目录)
+2018-05-04T09:17:39.665601Z 1 [Note] A temporary password is generated for root@localhost: s2AoL8yTJp.,   root密码
+
+
+2.5启动多实例服务
+
+mysqld_multi   start   1
+mysqld_multi   start   2
+
+停止启动的实例服务
+
+]#mysqld_multi --user=root --password=123456 
+
+2.6访问多实例服务
+连接实例服务1
+mysql -uroot -p"dY9C2h.yenue"(初始密码) -S /dataone/mysqld.sock(sock文件)
+
+>alther user user() identified by "123456";
+
+mysql -uroot -p123456 -S /dataone/mysqld.sock
+
+连接实例服务2
+mysql -uroot -p"s2AoL8yTJp.,"(初始密码) -S /datatwo/mysqld.sock(sock文件)
+
+>alther user user() identified by "123456";
+
+mysql -uroot -p123456 -S /datatwo/mysqld.sock
+
+
+
+三、mysql调优
+3.1mysql体系结构
+由8个功能模块组成：
+管理工具：mysqldump
+         mysqlbinlog
+         mysqladmin
+连接池：当接受到客户端的接连请求后，检查是否由资源响应客户端的连接请求
+
+SQL接口：把sql传递给mysqld线程
+
+优化器：优化执行的sql命令，已最节省资源的方式执行sql命令
+
+查询缓存：缓存曾经查找的记录
+
+存储引擎：是表的处理器，不同的存储引擎有不同的功能和数据存储方式。  innodb  myisam
+
+文件系统：存储表中记录的磁盘
+
+select * from db1.user where name="jim"
+jim
+insert update delete
+
+3.2mysql服务处理
+数据服务器接受到查询请求后，先从查询缓存里查找记录，若查询缓存里由查找记录，直接从缓存提取数据给客户端，反之到表去查询记录，把找到的记录先存放到查询缓存里在饭后给客户端
+
+3.3mysql调优
+3.3.1如何优化mysql数据库服务器(那些原因会导致数据库服务器处理客户端的连接请求慢)
+   a.硬件配置低，导致处理速度慢。CPU 内存 存储磁盘(接口 转速>=15000/s uptime free -m top -->0.0wa)
+   b.网络带宽窄  网络测速软件
+   c.提供服务的软件的版本低，导致性能低下：
+      c1查看服务运行时的参数配置
+           show variables;
+            show variabnles like "%innodb%";
+            常用参数：并发连接数                 show variables like "%conn%";
+                                              (max_connections最大连接数)
+                                              (max_used_connections曾经最大连接数)
+                                              *max_used_connections/max_connections=0.85
+                                              show global status like "max_used_connections";
+                                              set global max_connections=数字;
+                      连接超时时间               show variables like "%timeout%";
+                                              (innodb_lock_wait_timeout锁等待的超时时间)
+                                              (connect_timeout客户端与服务器建立连接时tcp三次握手超时时间)
+                                              (wait_timeout 客户端与服务器建立连接时，等待执行sql命令的超时时间) 
+                      可以重复使用的线程的数量  show variables like "%thread%";
+                                              (thread_cache_size默认的线程大小  #开启9个线程在内存中等待客户连接)
+                      所有线程同时打开表的数量  show variadles like "%open%"
+                                              (table_open_cache所有线程访问表的数量)
+                                              mysql -----> disk -----> x.ibd -----> memory -----> disk 
+                      与查询相关参数的设置      select * from t1; read_buffer_size  顺序查询
+                                       select * from t1 order by 字段名; sort_buffer_size
+                                       select * from t1 group by 字段名; read_rnd_buffer_size  
+                                       name -----> index
+                                       select * from t1 where name="jim"; key_buffer_size
+                      与查询缓存相关参数的设置  show variadles like "%cache%";
+                                       show variadles like "query_cache%";
+                                       query_cache_wlock_invalidate | OFF 关 查询缓存写锁对myisam表有效 对innodb表无效
+                                                   当对mysqlmyisam存储引擎
+                                          pc1  select name from t1 where name="bob";
+                                                      cache ------> name=bob
+                                          pc2  select name from t1 where name="bob";
+                                                      cache ------> name=bob
+                                          pc3  update t1 set name="jack" where name="bob";                               
+                      查看查询缓存的统计信息  show global status like "qcache%";
+                                              (qcache_hits           0记录在查询缓存里查询到数据的次数)
+                                              (qcache_inserts        0记录在查询缓存中查找数据的次数)
+                                              (qcache_lowmem_prunes  3清理缓存空间3次了，清理越少越好)
+
+
+      c2修改服务运行时的参数
+        (命令行设置，临时生效    >set [global] 变量名=值;
+         修改配置文件，永久生效  vim /etc/my.cnf
+                                   变量名=值
+                           :wq)
+        
+
+   d.程序员编写sql查询语句太复杂，数据库服务器处理速度慢
+        开启数据库服务器的慢查询日志，记录超过指定时间显示查询结果的sql命令            10s
+
+   f.mysql数据库服务日志类型：
+     错误日志：默认开启 记录服务在启动和运行过程中产生的错误信息
+      log-error=/var/log/mysqld.log
+
+     binlog日志
+
+      慢查询日志：记录超过指定时间显示查询结果的sql命令
+
+      查询日志：记录
+
+    vim  /etc/my.cnf
+     [mysqld]
+      slow-query-log
+      long-query-time=2
+      log-query-not-using-indexes
+      :wq
+     systemctl restart mysqld
+
+      mysql -uroot -p123456
+       select sleep(3);
+        
+      cat /var/lib/mysql/主机名-slow.log 查看日志文件内容
+       mysqldumpslow /var/lib/mysql/db55-slow.log >  /tmp/db55.log   统计日志文件记录信息
+
+     vim /etc/my.cnf
+     [mysqld]
+    general-log
+      :wq
+     systemctl restart mysqld
+      cat /var/lib/mysql/db55.log
+
+     g:网络架构有问题(由数据传输瓶颈)     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

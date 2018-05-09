@@ -1,0 +1,250 @@
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+数据类型关键字    存储范围    赋值方式   合理使用数据类型
+
+数值类型的宽度是显示宽度，不能够给字段赋值的大小。字段的值由类型决定 默认宽度是11位
+int(3)    输入3一位数时，补充2个空格然后显示
+             输入25二位数时，补充1个空格然后显示
+int(2)  zerofill 不够两位数的时候用0补位
+
+一、字段 约束条件
+1.作用：限制如何给字段赋值的
+2.包括的内容有： null key default extra
+ 2.1 null
+        是否允许给字段赋空值  默认允许  not null不允许赋空值   "null"，" "不是空值
+ 2.2 key
+        主键 外键 普通索引  唯一索引  全文索引
+ 2.3 default 
+         默认值 当不给字段赋值时，使用默认值给字段赋值，
+          在不指定的时候都是空值
+        设置默认值用 default 值
+         默认值一定要与字段匹配
+ 2.4 额外设置，字段是否设置为自动增长
+
+二、修改表结构
+1.命令 alter table 库名.表名 执行动作 ;
+执行动作：
+添加新字段     add  字段名   类型(宽度) 【约束条件】  first(添加在表首列)
+                                             after name(在name下一列)
+                                                          不指定位置在最后一列
+删除已有字段   drop  字段名     
+修改已有字段的类型宽度及约束条件   修改时不能与已有的数据发生矛盾就不能改
+            modify  字段名  类型(宽度)  【约束条件】
+修改字段名     change 原字段名  新字段名   类型(宽度) 【约束条件】
+修改表名       alter table 原表名  rename 【to】 新表名
+
+
+三、字段键值
+设置在表中字段上的，作用是约束如何给字段赋值。同时会给字段做索引
+
+索引介绍：树状目录结构  类似于书的目录
+  优点：加快查询表记录的速度
+  缺点：减慢编辑表记录(insert update delete)的速度，占用服务器的物理存储空间
+
+1.类型：主键 外键 普通索引  唯一索引  全文索引
+
+1.1普通索引：index  
+    一个表中可以有多个index字段
+    字段的值允许有重复，可以赋null值
+    经常把做查询条件的字段设置位index字段
+   index字段的key标志：MUL
+   使用规则： 查看  desc  表名
+                show index from 表名\G
+                       Table:t2
+                    Key_name:aaa
+                 Column_name:age
+                  Index_type:BTREE(二叉树)  Hash
+                      
+                      
+               创建
+                 在已有表中创建    create index 索引名 on 表名(字段名);
+                 建表时创建    create table 表名(
+                                   字段列表,
+                            index(字段名)，
+                            index(字段名)
+                                   );
+                删除  drop index  索引名  on  表名;
+
+
+1.2主键 primary key (普通主键  复合主键  主键+auto_increment)
+    一个表中只能有一个主键
+    值不能为null,不能重复
+    多个字段都想成为主键(复合主键)，需要一起创建，不能先创建一个后创建一个
+   primary key字段的key标志：PRI
+   primary key 通常和 auto_increment连用    让字段的值自动增长 i++ 类型是数值的
+    把表中能够唯一表示记录的字段设置为主键字段【记录编号字段】
+   使用规则： 查看    desc  表;
+               创建
+                  在已有表中创建  alter table 表 add primary key(字段名);
+                  建表时创建  create table 表名(              create table 表名(
+                                  字段列表,                         字段列表 primary key,
+                          primary key(字段名              );
+                                  );
+                           create table 表名(
+                                   字段列表,
+                           primary key(字段名,字段名)，
+                                   );
+                删除   alter table 表  drop primary key;
+   
+ 
+
+
+1.3外键    foreign key 作用：限制如何给字段赋值的 
+  给当前表中字段赋值时，值只能在其他表的指定字段值的范围里选择
+   被参考字段的值是唯一的，一个字段里面有相同的信息可以换一个字段，
+   存储引擎必须是innodb  (engine=innodb)
+    使用规则： 查看    show create table 表名;
+                创建    
+                   在已有表中创建 alter tabke 表名 add foregin key(字段名) references 表名(字段名)  on update cascade (同步更新) on delete cascade (同步删除)
+                   建表时创建  create table 表名(
+                                字段名列表
+                         foregin key(字段名) references 表名(字段名)
+                         on update cascade 同步更新
+                         on delete cascade 同步删除
+                         )engine=innodb;
+                删除   alter table 表名 drop foreign key 外键名;
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 
+update jfb set id=9 where name="bob"
+delete from jfb where id=2;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,275 @@
+
+
+-------------------------DBA 大纲
+
+一、搭建mysql数据库服务器
+二、mysql数据库的基本使用   增删改查
+三、建表：mysql数据类型  约束条件  键值  存储引擎
+四、管理表记录  增删改查  insert  delete update  select  匹配条件  多表查询 
+五、用户授权与权限撤销
+六、数据备份与恢复
+七、mysql主从同步
+八、数据读写分离
+九、部署mysql集群
+十、mysql调优
+十一、mysql试图 和 存储过程
+
+非关系型数据库服务的使用 redis和mongodb
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+一、多表查询
+1.复制表  作用：备份表 和 快速建表  
+ 1.1复制表的命令格式： 复制整个表 create table (新)库名.新表名  select * from (旧)库名.(旧)表名
+                        只想要表结构 加一个where 不成立的条件 create table (新)库名.新表名  select * from (旧)库名.(旧)表名 where 不成立条件
+ 1.2例子： create table day04.user2 select * from day04.usertab;
+         create table day04.user3 select username,uid,shell from day04.usertab limit 5(前5行);
+         create table d04.t1      select * from day04.usertab where 1=2;
+         create table d04.t2      select id,username,uid,home from day04.usertab where 1=2;
+ 1.3---------------划重点：1.3.1复制的内容由"select * from 库名.表名"来决定
+                        1.3.2不会复制源表字段的键值给新表
+
+
+
+2.嵌套查询
+ 2.1定义：把内层的查询结果作为外层查询的查询条件
+ 2.2命令格式：select 字段名列表 from 库名.表名 条件(select 字段名列表 from 库名.表名 条件)；
+ 2.3例子：2.3.1同一个库下的一张表：select username,uid from usertab where uid < (select avg(uid) from usertab);   
+                                  (select user from mysql.user where host="localhost");
+           2.32不同库下的不同表：select username from day04.usertab where username in (select user from mysql.user where host="localhost");
+
+
+
+3.多表查询
+2.1命令格式： select 表名1.字段名,表名2.字段名 from 表名1.表名2 条件
+2.2例子：select * from t4,t5 where t4.uid=t5.uid;
+        select t4.*,t5.gid from t4,t5 where t4.uid=t5.uid;
+        select t4.username,t5.username from t4,t5 where t4.uid=t5.uid;
+        select t4.username,t5.username from t4,t5 where t4.uid=t5.uid and t4.uid is not null and t5.uid is not null;
+
+      select * from t4,t5; 迪卡尔集:表行的积
+
+
+4.连接查询
+4.1左连接查询 (当条件成立时,以左表为主显示查询结果)
+   select 字段名列表 from 表1 left join 表2 on 匹配条件；
+
+4.2右连接查询 (当条件成立时,以右表为主显示查询结果)
+   select 字段名列表 from 表1 right join 表2 on 匹配条件；
+
+4.3例子： select * from t6 left join t7 on t6.uid=t7.uid;
+         select * from t6 right join t7 on t6.uid=t7.uid;
+
+
+
+二、安装数据库图形管理工具  phpmyadmin
+2.1管理数据库服务器的方式：命令行(兼容平台) mysql -u -p -h 
+                             图形(应用程序软件提供的图形界面 ，Web页面)
+2.2在数据库服务器上安装图形管理工具 phpmyadmin
+ 2.2.1准备软件的运行环境 lamp/lnmp
+
+[root@mysql51 ~]# 
+[root@mysql51 ~]# vim /var/www/html/test.php
+                  <?php
+                  $x=mysql_connect("localhost","root","123456");
+                  if($i){ echo "ok"; }else{ echo "no"; };
+                       ?>
+[root@mysql51 ~]# yum -y install elinks
+[root@mysql51 ~]# elinks --dump http://localhost/test.php
+           ok
+ 
+
+ 2.2.2安装phpmyadmin-2.11.11-all-languages.tar.gz
+
+ 
+ 2.2.3修改软件的配置文件定义管理
+[root@mysql51 phpMyAdmin]# cp config.sample.inc.php config.inc.php
+[root@mysql51 phpMyAdmin]# vim config.inc.php
+                 $cfg['blowfish_secret'] = 'zwj'; /* YOU MUST FILL IN THIS FOR COOKIE AUTH! */
+                 $cfg['Servers'][$i]['host'] = 'localhost';
+
+
+
+三、用户授权与权限撤销
+3.0数据库管理员密码
+
+0.1恢复数据库管理员本机登陆密码
+  vim /etc/my.cnf
+  [mysqld]
+  skip-grant-tables
+   update  mysql.user set authentication_string=password(123456) where user="root" and host="localhost";
+   flush  privileges
+
+0.2修改数据库管理员本机登陆的密码(需要知道当前的密码)
+  #mysqladmin -hlocalhost -uroot -p password "654321"
+   Enter password: 当前登陆密码
+  
+
+3.1定义： 在数据库服务器上添加连接用户，添加时可以设置用户的访问权限和连接的密码，默认只允许数据库管理员root用户在本机登陆，默认只有数据库管理员root用户在本机登陆才有授权权限
+
+3.2用户授权命令语法格式：   grant 权限列表 on 数据库名 to 用户@"客户端地址" indentified by "密码" [with grant option];
+   3.2.1权限列表的表示方式：
+        all    所有权限
+        select  insert  update(字段1，字段2)
+   3.2.2数据库名 的表示方式：
+           *.*       所有库所有表
+          库名.*     某个库
+          库名.表名  某个表
+   3.2.3用户名表示方式：
+          连接数据库服务器时使用的名字
+          授权时自定义，要有标示性
+          名字存储在mysql库下的user表里
+   3.2.4客户端地址的表示方式：
+          %                 所有地址
+         192.168.4.254     指定ip地址
+         192.168.4.%       网段
+       pc254.tedu.cn  主机名(要求数据库服务器可以解析主机名) 
+       %.tedu.cn      域名(要求数据库服务器可以解析域名)
+   3.2.5密码：授权用户使用的密码
+   3.2.6【with grant option】：可选项，让新添加的用户有授权权限
+ 
+如：允许客户端254主机可以使用root连接，连接密码是123456，连接后的访问权限是所有库所有表有源泉访问权限，且有授权权限。
+    grant all on *.* to root@'192.168.4.254' identified by '123456' with grant option;
+
+
+
+3.3在客户端使用授权用户连接数据库服务器
+  #ping -c 2 192.168.4.51        
+  #whick mysql
+  #yum -y install mariadb
+  #mysql -h数据库服务器ip地址 -u用户名 -p密码
+
+3.3撤销用户权限命令语法格式：  revoke 权限列表 on 数据库名 from 用户@"客户端地址";
+   撤销的是用户的访问权限不是用户
+   用户对有过权限的才能撤销
+
+例子1：撤销254主机使用root用户连接时，授权权限。
+  revoke grant option on *.* from root@192.168.4.254;
+
+例子2：通过修改表记录的方式撤销用户的权限。
+  update mysql.user set Select_priv="N" where user="root" and host="192.168.4.254";
+  update mysql.user set Grant_priv="N" where user="root" and host="192.168.4.254";
+  flush  privileges
+
+
+3.4用户授权信息存储的位置(数据库服务器使用授权存储授权信息)：
+    information_schema 虚拟库  不占用物理内存空间  数据存储在物理内存里  存储用户和密码信息  
+    mysql库  授权库 
+    
+    user表 存储授权用户的名及访问权限 ：      host   客户端访问的ip  user   用户名   authentication_string    密码      
+                    如： >update  mysql.user set authentication_string=password(123456) where user="root" and host="localhost";
+                    >flush  privileges
+    db表    库名
+    tables_priv表        存储授权用户表的访问权限
+    columns_priv表        存储授权用户表中字段的访问权限
+3.5工作中如何授权
+  给管理者授权
+  给使用者授权192.168.4.77
+
+    >select user();      查看连接的用户和客户端地址
+    >select @@hostname;  查看当前登陆的主机名
+    >show grants;        查看权限
+    >select user,host from mysql.user;  查看服务器上已有的授权用户
+    >show grants for 用户名@客户端地址;    查看某授权用户的权限
+    >drop user 用户名@客户端地址;    删除授权用户
+    >set password=password("密码");  授权用户连接数据库后修改自己的登陆密码
+    >set password for 用户名@客户端地址 = password("密码");  数据库管理员修改授权用户的登陆密码
+
+     划重点：授权用户不是有授权权限就能授权的，要同时对mysql库有insert的权限才行。且授权的时候权限要小于等于自身的权限才行
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,279 @@
+
+
+部署mysql主从结构
+
+
+
+
+
+
+五、mysql主从同步常用的配置参数
+
+主库服务器在配置文件my.cnf使用的参数      配置完对所有从库有效
+vim /etc/my.cnf
+[mysqld]
+binlog_do_db=库名列表        #只允许同步的库
+binlog_ignore_db=库名列表   #不允许同步的库
+
+systemctl restart mysqld
+
+从库服务器在配置文件需要的参数         配置完对自己有效，跟别的库没关系
+vim /etc/my.cnf
+[mysqld]
+log_slave_updates  级联复制(记录从库更新)
+relay_log=中继日志文件名
+replicate_do_db=库名列表         #只同步的库
+replicate_ignore_db=库名列表    #只不同步的库
+
+systemctl restart mysqld
+
+配置mysql主从从结构
+主机  192.168.4.51
+从库  192.168.4.52 (做51主机从库)
+从库  192.168.4.53 (做52主机从库)
+要求：客户端访问主库51时创建库表记录 在52和53 数据库服务器都可以看到
+
+配置步骤：
+一、环境准备
+主从同步未配置前，要保证从库上有主库上的数据
+setenforce 0
+systemctl stop firewalld
+可以ping 通
+
+二、配置主从同步
+2.1配置主库51
+用户授权
+]# mysql -uroot -p123456
+> grant replication slave on *.* to yaya@"%" identified by "123456";
+
+启动binlog日志
+]# vim /etc/my.cnf
+[mysqld]
+server_id=51
+#log-bin
+log-bin=db51
+binlog-format="mixed"
+:wq
+]# systemctl restart mysqld
+]# ls /var/lib/mysql/db51*
+/var/lib/mysql/db51.000001  /var/lib/mysql/db51.index
+
+查看正在使用的日志信息
+]#mysql -uroot -p123456
+> show master status;
++-------------+----------+--------------+------------------+-------------------+------------------+---------------------------------+
+| File        | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+----------+--------------+------------------+-------------------+------------------+---------------------------------+
+| db51.000001 |      154 |              |                  |                   |
++-------------+----------+--------------+------------------+-------------------+------------------+---------------------------------+
+1 row in set (0.00 sec)
+
+
+2.2配置从库52
+用户授权
+]# mysql -uroot -p123456
+> grant replication slave on *.* to user53@"192.168.4.53" identified by "123456";
+
+启用binlog日志，指定server_id和和允许级联复制
+]# vim /etc/my.cnf
+[mysqld]
+server_id=52
+log-bin=db52
+binlog-format="mixed"
+log_slave_updates
+:wq
+]# systemctl restart mysqld
+]# ls /var/lib/mysql/db52*
+/var/lib/mysql/db52.000001  /var/lib/mysql/db52.index
+
+查看正在使用的日志信息
+]#mysql -uroot -p123456
+> show master status;
++-------------+----------+--------------+------------------+-------------------+-----------------+----------------------------------+
+| File        | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+----------+--------------+------------------+-------------------+-----------------+----------------------------------+
+| db52.000001 |      154 |              |                  |                   |
++-------------+----------+--------------+------------------+-------------------+-----------------+----------------------------------+
+1 row in set (0.00 sec)
+
+
+验证主库的授权用户
+]# mysql -h192.168.4.51 -uyaya -p123456
+> quit
+
+管理员登陆指定主库信息
+]# mysql -uroot -p123456
+> change master to master_host="192.168.4.51", master_user="yaya", master_password="123456", master_log_file="db51.000001",      master_log_pos=154;
+
+启动slave进程
+> start slave;
+
+查看进程状态信息
+> show slave status \G;
+Slave_IO_Running:Yes
+Slave_SQL_Running:Yes
+
+
+
+
+2.3配置从库53
+用户授权
+]#mysql -h192.168.4.52 -uuser53 -p123456
+>quit;
+
+启用binlog日志，指定server_id
+]#vim /etc/my.cnf
+server_id=53
+:wq
+systemctl restart mysqld
+
+查看正在使用的日志信息
+
+
+验证主库的授权用户
+
+
+管理员登陆指定主库信息
+> change master to master_host="192.168.4.52", master_user="user53", master_password="123456", master_log_file="db52.000001", master_log_pos=154;
+
+启动slave进程
+>start slave;
+
+查看进程状态信息
+>show slave status\G;
+Slave_IO_Running:Yes
+Slave_SQL_Running:Yes
+
+
+三、客户端验证配置
+3.1在主库上授权访问gamedb库的用户
+>grant all on gamedb.* to dada@"%" identified by "123456";
+
+3.2客户端使用授权用户连接主库、建库、表、插入记录
+]#mysql -h192.168.4.51 -udada -p123456
+create database gamedb;
+
+create table gamedb.t1(id int);
+insert into gamedb.t1 values(888);
+
+create table gamedb.t2(id int);
+insert into gamedb.t2 values(1000);
+
+select * from gamedb.t1;
+select * from gamedb.t2;
+
+
+3.3客户端使用授权用户连接2台从库时，也可以看到主库上新的库表记录
+mysql -h192.168.4.52 -udada -p123456
+select * from gamedb.t1;
+select * from gamedb.t2;
+
+mysql -h192.168.4.53 -udada -p123456
+select * from gamedb.t1;
+select * from gamedb.t2;
+
+
+mysql主从同步的复制模式
+一、类型
+1.1异步模式(默认情况) 
+1.2半同步模式
+1.3全同步模式
+
+查看是否允许动态加在模块：
+> show variables like "have_dynamic_loading";
++----------------------+-------+-----+------------+
+| Variable_name        | Value |
++----------------------+-------+-----+------------+
+| have_dynamic_loading | YES   |
++----------------------+-------+-----+------------+
+1 row in set (0.01 sec)
+
+命令行下加在模块 或者 在配置文件里面加模块
+
+命令行下：
+用户需要super权限
+主库：install plugin rpl_semi_sync_master soname 'semisync_master.so';
+从库：install plugin rpl_semi_sync_slave soname 'semisync_slave.so';
+
+查看模块信息：
+select plugin_name,plugin_status from information_schema.plugins where plugin_name like '%semi%';
+
+设置模式
+主库：set global rpl_semi_sync_master_enabled = 1;
+从库：ser global rpl_semi_sync_slave_enabled = 1;
+
+查看半同步复制模式是否启用：
+show variables like "rpl_semi_sync_*_enabled";
+
+配置文件：
+vim /etc/my.cnf
+[mysqld]
+plugin-load=rpl_semi_sync_master=semisync_master.so
+rpl_semi_sync_slave_enabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

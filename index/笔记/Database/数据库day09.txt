@@ -1,0 +1,570 @@
+
+
+Nosql非关系型数据库服务的使用：redis 和 mongodb
+
+mysql MHA高可用集群的拓扑结构
+
+管理汉族级
+一主多从
+                         master51(半同步复制模式)             mgm56
+
+slave52(半同步复制模式) slave53(半同步复制模式) slave54 slave55
+   备用主                       备用主
+
+一、配置一主多从  主从同步结构
+二、配置MHA mysql高可用集群环境准备
+2.1所有数据节点主机之间可以互相免密ssh连接
+2.2管理主机可以免密码ssh连接所有数据节点主机
+2.3用户准备：
+做主库的数据节点主机必须由同步数据的连接用户repluser 密码123456   51,52,53
+在所有数据节点主机授权给管理主机监控自己时的连接用户root 密码123456  51-55
+2.4在所有主机上安装perl-*rpm 和 mha_node软件包 51-56
+三、配置管理主机 56
+3.1装包 mha_manager
+3.2修改配置文件
+3.3编辑主配置文件app1.cnf
+3.4启动服务(要测试ssh连接 和 主从同步状态)
+3.4.1手动给主库(master)配置vip地址
+3.4.2启动管理服务
+3.4.3查看管理服务的状态，可以看到当前主库时那台 及使用的vip地址
+3.4.4客户端连接vip地址访问数据库服务
+mysql -h192.168.4.100 -uwebadmin -p123456
+mysql>
+
+3.4.5测试故障转移
+关闭主库 51
+]#shutdown -h now
+查看管理主机的状态：可以看到当前主库时那台 及使用的vip地址(若管理服务停止了，手动启动管理服务，查看状态可以看到当前主库时那台 及使用的vip地址)
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+一、mysql试图
+1.1介绍：是一种虚拟存在的表，在数据库中不已存储数据形式存在，数据在基本表中，更新视图的数据，就是更新基表的数据，更新基表数据，视图的数据也会跟着改变
+1.2优点：简单，安全，数据独立   用户可以看到过滤好符合条件的结果集(假表)
+1.3使用限制：
+1.3.1不能在视图上创建索引
+1.3.2在视图的FROM子句中不能使用子查询
+1.3.3以下情形中的视图是不可更新的：
+包含以下关键字的SQL语句：聚合函数(SUM、MIN、MAX、COUNT等)、DISTINCT、GROUP BY、HAVING、UNION或UNION ALL
+常量视图
+JOIN
+FROM一个不能更新的视图
+WHERE子句的子查询引用了FROM子句中的表
+使用了临时表，视图是不可更新
+1.4试图的基本使用
+1.4.1创建试图： create view 视图名称 as sql查询；
+             create view 视图名称 (字段名列表) as sql查询；
+1.4.2删除试图： drop  view  视图名；
+1.4.3修改试图： create  or  replace  view   视图名  as  select 查询；
+1.4.4查询试图： show create view 视图名;
+               或show table status;
+             show table status where comment="view"\G;
+1.4.5记录：
+1.4.5.1插入：insert into 视图名(字段名列表)  values(字段值列表)；
+1.4.5.2查询：select  字段名列表   from  视图名 where 条件；
+1.4.5.3更新：update  视图名 set  字段名=值 where 条件；
+1.4.5.4删除：delete  from  视图名 where 条件；
+
+创建视图完全格式：CREATE
+               [OR REPLACE]
+               [ALGORITHM = {UNDEFINED | MERGE | TEMPTABLE}]
+               [DEFINER = { user | CURRENT_USER }]
+               [SQL SECURITY { DEFINER | INVOKER }]
+               VIEW view_name [(column_list)]
+               AS select_statement
+               [WITH [CASCADED | LOCAL] CHECK OPTION]
+设置字段的别名：create  view  视图名 
+              as  
+              select 表别名.字段名 as 字段别名  
+              from 源表名 表别名 left join 源表名 表别名  
+              on  条件；
+
+重要选项说明：
+1.创建时，若视图已存在，会替换已有的视图
+1.1替换已有的视图： create  or  replace  view   视图名  as  select 查询；
+
+
+[ALGORITHM = {UNDEFINED | MERGE | TEMPTABLE}]
+  MERAGE  （替换方式）（默认）
+        视图名直接使用视图的公式替换掉，把视图公式合并到了select中。
+  TEMPTABLE （具体化方式）
+        先得到视图的执行结果，该结果形成一个中间结果暂时存在内存中，之后，外面的select语句就调用了这些中间结果。
+  UNDEFINED （未定义）
+       ALGORITHM选项的值是UNDEFINED 表示使用的是MERAGE替换方式。
+
+
+[WITH [CASCADED | LOCAL] CHECK OPTION]
+  LOCAL和CASCADED关键字决定了检查的范围。
+  LOCAL (默认值)  仅检查当前视图的限制。
+  CASCADED  同时要满足基表的限制。
+  如：create view v1 as select xxx from 表/视图  [with local/cascaded check option] 
+
+
+把系统用户信息存储到db9库下的user表里，并在所有列前添加行号字段id 要求自动增长
+
+>create database db9;
+>use db9;
+>create table user(username char(50),password char(10),uid int(10),gid int(10),comment char(100),homedir char(100),shell char(50));
+>load data infile "/etc/passwd" into table user fields terminated by ":" lines terminated by "\n"
+>alter table user add id int primary key auto_increment first;
+
+
+>create table info select username,uid,homedir,shell from user limit 5;
+>show tables;
+>create view v4 as select a.username as ausername,b.username as busername,a.uid as auid,b.uid as buid from user a left join info b on a.uid=b.uid;
+
+>create view v2 as select username,shell,homedir from user;
+>select * from v2;
+>create or replace view v2 as select * from user;
+>select * from v2;
+
+>create table a select * from user where uid<10;
+>select * from a;
+>create view va1 as select * from a where uid<8 with check option;
+>create view va2 as select * from a where uid>=5 with local check option;
+>create view va3 as select * from a where uid>=5 with cascaded check option;
+>select * from va2;
+>select * from va3;
+>update va3 set uid=15 where name="sync";
+>update va3 set uid=6 where name="sync";
+
+
+二、mysql存储过程
+1.介绍：mysql中的脚本 数据库sql命令的集合
+2.优点：提高性能
+         可减轻网络负担
+         可以防止对表的直接访问
+         避免重复的sql操作
+
+3.基本使用：
+3.1创建存储过程：
+   delimiter //
+   create procedure 名称()
+   begin
+        功能代码
+        ......
+        ......
+   end
+    //	
+   delimiter ;
+3.2调用存储过程：call 名称()
+3.3删除存储过程：drop procedure 名称;
+3.4查看存储过程：show procedure status \G;
+              select db,name,type from mysql.proc where name="say" \G;
+
+4.存储过程进阶：
+4.1参数类型：create procedure  名称(  
+              类型   参数名  数据类型 ，
+              类型   参数名  数据类型
+              ）
+              create procedure 名称()
+in(默认)  输入参数            传递值给存储过程，必须在调用存储过程时指定，在存储过程中修改该参数的值不能
+out      输出参数            该值可在存储过程内部被改变，并可返回
+inout    输入/输出参数       调用时指定，并且可被改变和返回
+
+4.2变量类型
+4.2.1系统变量：
+会话变量：使用set命令定义
+全局表量：全局变量的修改会影响到整个服务器，但是对会话变量的修改，只会影响到当前的会话
+用户表量：在客户端连接到数据库服务的整个过程中都是有效的。当当前连接断开后所有用户变量失效。
+           定义 set   @变量名=值。
+           输出 select  @变量名                  系统环境变量用@@，自己定义的变量@
+局部变量：存储过程中的begin/end。其有效范围仅限于该语句块中，语句块执行完毕后，变量失效。
+        declare专门用来定义局部变量。
+
+查看全局变量：show global variables;  
+查看会话变量：show session variables;  
+设置会话变量：set session sort_buffer_size = 40000; 
+查看会话变量：show session variables like “sort_buffer_size”; 
+查看全局变量：show global variables like “%关键字%”; 
+用户自定义变量，直接赋值：set @y = 3;   
+使用sql命令查询结果赋值：select max(uid) into @y from user;   
+
+算数运算
++：      加法运算    set var1=2+2; 4
+-：       减法运算    set var2=3-2; 1
+*：       乘法运算    set var3=3*2; 6
+/：       除法运算    set var4=10/3; 3.3333333333
+div：   整除运算    set var5=10 div 3; 3
+%：       取余运算    set var6=10%3; 1
+
+set @z=1+2;select @z;
+set @x=1;set @y=2;set @z=@x*@y;select @z;
+set @x=1;set @y=2;set @z=@x-@y;select @z;
+set @x=1;set @y=2;set @z=@x/@y;select @z;
+
+条件判断
+=                          等于
+>,>=                     大于，大于等于
+<,<=                     小于，小于等于
+!=                        不等于
+between .. and ..    在..与..之间
+or,and，!            逻辑或，逻辑与，逻辑非
+in..,not in..        在..范围内，不在..范围内
+is null              字段是空
+is not null          字段不是空
+like                 模糊匹配
+regexp               正则匹配
+
+流程控制
+if结构： if 条件测试 then
+          代码1
+          ..
+        end if;
+
+        if 条件测试 then
+          代码1
+           ..
+        (else)
+           (代码2)
+            ..
+        end if;
+
+调用变量是，由@符号的变量 例如 @x 调用的是用户自定义变量
+没有@符号的变量 例如 x 调用的是存储过程的参数变量
+
+delimiter //
+create procedure p1(in num int(2))
+begin
+select num;
+select @num;
+end
+//
+delimiter ;
+
+
+while结构： while 条件判断 do
+              循环体
+              ....
+           end while;
+
+loop结构： loop 
+              循环体
+             ....
+          end while;
+
+repeat结构：
+repeat
+	循环体
+      until   条件判断   //注意 until 的判断条件 后不要加 ；号
+end   repeat ;
+
+
+控制循环语句：
+控制循环结构的执行
+LEAVE   标签名     //结束循环
+ITERATE 标签名   //放弃本次循环，执行下一次循环
+
+
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>delimiter //
+>create procedure say()
+->begin
+->select * from db9.user where username="root";
+->end
+->//
+>delimiter ;
+>call say();
+
+>delimiter //
+>create procedure say(IN username char(20))
+->begin
+->select * from db9.user where name="@username"
+->end
+->//
+>delimiter ;
+>call say("root");
+
+>delimiter //
+>create procedure say(IN username char(20),IN x int(2))
+->begin
+->select * from db9.user where name="@username" and uid="@x"
+->end
+->//
+>delimiter ;
+>call say("root",19);
+
+>delimiter //
+>create procedure say2(OUT number int(10))
+->begin
+->select count(id) into @number from db9.user where shell!="/bin/bash"
+->select @number;
+->end
+->//
+>delimiter ;
+>call say2();
+
+>delimiter //
+>create procedure say3(in username char(10))
+->begin
+->select username;
+->select * from db9.user where name=username;
+->end
+->//
+>delimiter ;
+>call say2("root");
+
+>use db9;
+>delimiter //
+>create procedure say4()
+->begin
+->declare x int default 9;
+->select x;
+->select sum(uid) into x from db9.user where uid<=100;
+->select x;
+->end
+->//
+>delimiter ;
+>call say3;
+
+
+>delimiter //
+>create procedure say6(in bash char(20),in nologin char(25),out x int,out y int)
+->begin
+->declare z int;
+->set z=0;
+->select count(username) into @x from db9.user where shell=bash;
+->select count(username) into @y from db9.user where shell=nologin;
+->set z=@x+@y;
+->select z;
+->end
+->//
+>delimiter ;
+>call say5("/bin/bash","/sbin/nologin",@x(占为符),@y(占为符));
+
+
+>delimiter //
+>create procedure say7(in x int(1))
+->begin
+->if x <=10 then
+->select * from db9.user where id <= x;
+->end if;
+->end
+->//
+>delimiter ;
+>call say7(9);
+
+
+>delimiter //
+>create procedure say8(in x int(1))
+->begin
+->if x is null then
+->set @x=1;
+->select * from db9.user where id=x;
+->end if;
+->if x <= 10 then
+->select * from db9.user where id <= x;
+->end if;
+->end
+->//
+>delimiter ;
+>call say8(3);
+
+
+>delimiter //
+>create procedure say9(in x int(1))
+->begin
+->if x is null then
+->set @x=1;
+->select * from db9.user where id=x;
+->else
+->select * from db9.user where id <= x;
+->end if;
+->end
+->//
+>delimiter ;
+>call say9(3);
+
+
+>delimiter //
+>create procedure say10(in x int(1))
+->begin
+->if x is null then
+->set @x =1
+->select * from db9.user where id=x;
+->end if;
+->if x <= 10 then
+->select * from db9.user where id<=x;
+->end if;
+->end
+->//
+>delimiter ;
+
+
+在testdb库下创建存储过程p2 功能：根据用户输入的数字显示db9库下的user表对应记录的信息。若在调用存储过程p2时不给查看的行号，默认查看表中第一条记录
+
+>delimiter //
+>create procedure p1(in linenum int(1))
+->begin
+->if linenum is null then
+->set @linenum=1;
+->select * from db9.user where id=@linenum;
+->else
+->select linenum;
+->select * from db9.user where id=linenum;
+->end if;
+->end
+->//
+>delimiter ;
+
+输出数字1到5：
+>delimiter //
+>create procedure p2()
+->begin
+->declare i int;
+->set i=1;
+->while i<= 5 do
+->select i;
+->set i=i+1;
+->end while;
+->end
+->//
+>delimiter ;
+>call p2();
+  或
+>delimiter //
+>create procedure p2_1()
+->begin
+->declare i int;
+->set i=1;
+->while i<= 4 do
+->set i=i+1;
+->end while;
+->select i;
+->end
+->//
+>delimiter ;
+>call p2_1();
+
+loop死循环：
+>delimiter //
+>create procedure p3()
+->begin
+->declare i int;
+->set i=1;
+->loop
+->select i;
+->set i=i+1;
+->end loop;
+->end
+->//
+>delimiter ;
+>call p3();
+
+
+控制语句：
+>delimiter //
+>create procedure p4()
+->begin
+->declare i int;
+->set i=1;
+->loab1:loop
+->select i;
+->set i=i+1;
+->leave loab1;
+->end loop;
+->end
+->//
+->delimiter ;
+->call p4();
+
+>delimiter //
+>create procedure p5()
+->begin
+->declare i int;
+->set i=1;
+->loab2:loop
+->select i;
+->set i=i+1;
+->if i = 11 then
+->leave loab2;
+->end if;
+->end loop;
+->end
+->//
+->delimiter ;
+->call p5();
+
+>delimiter //
+>create procedure p6()
+->begin
+->declare i int;
+->set i=0;
+->loab3:loop
+->set i=i+1;
+->if i = 5 then
+->iterate loab3;
+->end if;
+->if i = 11 then
+->leave loab3;
+->end if;
+->select i;
+->end loop;
+->end
+->//
+->delimiter ;
+->call p6();
+
+使用repeat循环输出数字1-5
+>delimiter //
+>create procedure p7()
+->begin
+->declare i int;
+->set i=1;
+->repeat
+->select i;
+->set i=i+1;
+->until i=5
+->end repeat;
+->end
+>delimiter ;
+>call p7();
+
+>delimiter //
+>create procedure p8()
+->begin
+->declare i int;
+->set i=20;
+->repeat
+->select i;
+->set i=i+1;
+->until i=41
+->end repeat;
+->end
+->//
+>delimiter ;
+>call p8();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,223 @@
+
+
+
+准备4台主机
+
+client   192.168.4.254/24
+mycat服务器  192.168.4.56/24
+mysql服务器  192.168.4.55/24
+mysql服务器  192.168.4.54/24
+
+公共配置：
+systemctl stop firewalld
+setenforce 0 
+配置yum源
+
+把54和55 还原独立数据库服务器，且只保留默认4个其他全部删除
+停止56主机的mha管理服务
+
+下载mycat软件到56主机里
+
+
+
+在两台mysql服务器上做如下操作：
+
+vim /etc/my.cnf
+[mysqld]
+lower_case_table_names=1
+:wq
+
+grant all on *.* to admin@"%" identified by "123456";
+
+
+配置mycat56服务器
+
+装包
+
+安装JDK
+]# rpm -qa | grep -i jdk #安装系统自带的即可
+java-1.8.0-openjdk-1.8.0.65-3.b17.el7.x86_64
+java-1.8.0-openjdk-headless-1.8.0.65-3.b17.el7.x86_64
+
+
+安装mycat服务软件包
+]# tar -zxf Mycat-server-1.4-beta-
+20150604171601-linux.tar.gz #免安装，解压后即可使用
+]# mv mycat/ /usr/local/
+]# ls /usr/local/mycat/
+bin catlet conf lib logs version.txt
+
+
+分片算法  在/usr/local/mycat/conf/rule.xml
+• mycat服务提供10种分片算法。
+– 1枚举法 sharding-by-intfile
+– 2固定分片hash算法 rule1
+– 3范围约定 auto-sharding-long
+– 4求模法 mod-log
+– 5日期列分区法 sharding-by-date
+– 6通配取模 sharding-by-pattern
+– 7ASCII码求模通配 sharding-by-prefixpattern
+– 8编程指定 sharding-by-substring
+– 9字符串拆分hash解析 sharding-by-stringhash
+– 10一致性hash sharding-by-murmur
+
+
+修改配置文件
+• 目录结构说明
+– bin mycat命令 如 启动 停止 等
+– catlet 扩展功能
+– conf 配置文件
+– lib mycat使用的jar包 mycat是java开发的
+– log mycat启动日志和运行日志
+– wrapper.log mycat服务启动日志 ，启动有问题可以
+看这个日志的内容
+– mycat.log 记录 sql脚本执行后的具体报错内容
+
+
+修改配置文件(续1)
+• 重要配置文件说明
+– server.xml 设置连接mycat服务的账号 、密码等
+– schema.xml 配置mycat使用的真实数据库和表
+– rule.xml 定义mycat分片规则
+
+
+mysql -hmycat_ip -utest -ptest TESTDB(逻辑库不用真实存在，但要记住名字)
+33         </system>
+34         <user name="test">
+35                 <property name="password">test</property>
+36                 <property name="schemas">TESTDB</property>
+
+mysql -hmycat_ip -uuser -puser TESTDB select
+39         <user name="user">
+40                 <property name="password">user</property>
+41                 <property name="schemas">TESTDB</property>
+42                 <property name="readOnly">true</property>
+
+
+逻辑库 -----> 客户端连接mycat 服务器后显示的库名(一个标识)。可自定义。
+
+逻辑库 -----> 客户端连接mycat 服务器后，存储数据时，要求其数据分片的表名。(和程序员定义的用来存储数据的表名相同)
+
+server.xml 定义连接mycat 服务用户名和密码 及逻辑库的名字
+定义用户
+<user> .....</user>
+
+schema.xml 定义数据分片信息
+指定数据分片的表名
+<table>....</table>
+<table   参数      />
+<table name="travelrecord" dataNode="dn1,dn2" rule="auto-sharding-long" />         
+<table name="company" primaryKey="ID" type="global" dataNode="dn1,dn2" />
+<table name="goods" primaryKey="ID" type="global" dataNode="dn1,dn2" /> 
+<table name="hotnews" primaryKey="ID" dataNode="dn1,dn2" rule="mod-long" />
+<table name="employee" primaryKey="ID" dataNode="dn1,dn2" rule="sharding-by-intfile" />
+<table name="customer" primaryKey="ID" dataNode="dn1,dn2" rule="sharding-by-intfile">
+
+
+指定数据分片的表主机
+<datanode>....</datanode>
+<dataNode name="dn1" dataHost="mysql55" database="db1" />
+<dataNode name="dn2" dataHost="mysql54" database="db2" />
+
+
+指定数据分片主机的位置
+<datahost>....</datahost>
+<dataHost name="mysql55" maxCon="1000" minCon="10" balance="0"
+ writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+<heartbeat>select user()
+</heartbeat>
+<writeHost host="hostM1" url="192.168.4.55:3306" user="admin" password="123456">
+</writeHost>
+</dataHost>
+
+
+客户端连接mycat服务器，写入数据
+]# mysql -h192.168.4.56 -P8066 -utest -ptest
+>show databases;
+>use TESTDB;
+>show tables;
+>create table employee(
+->id int not null primary key,
+->name varchar(100),
+->sharding_id int not null
+->);
+> insert into employee(id,name,sharding_id)
+->values(1,"bob",10000),
+->(2,"lucy",10010),
+->(3,"alice",10020),
+->(4,"jerry",10030);
+>select * from employee;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

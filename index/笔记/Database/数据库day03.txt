@@ -1,0 +1,197 @@
+
+一、存储引擎
+1.存储引擎介绍：
+ (1)mysql数据库软件自带的功能程序
+  (2)每种存储引擎的功能和数据存储方式也不同
+  (3)存储引擎就是处理表的处理器
+  
+2.查看数据库服务支持的存储引擎有那些
+ (1)show engines;
+     DEFAULT 建表的时候默认的存储引擎
+      YES    建表的时候可以指定的存储引擎
+3.查看已有的表使用的存储引擎
+ (1)show create table 表;
+
+4.修改数据库服务默认使用的存储引擎
+ (1)#vim /etc/my.cnf
+     [mysqld]
+     default-storage-engine=存储引擎名
+     #systemctl restart mysqld
+
+5.修改表使用的存储引擎，或建表时指定表使用的存储引擎
+ (1)alter table 表 engine=存储引擎名;
+ (2)create table 表(字段列表) engine=存储引擎名;
+  
+6.常用存储引擎的特点
+ (1)innodb 特点
+    Supports transactions, row-level locking, and foreign keys
+     支持事务，事务回滚，行级锁，外键
+     存储方式：一个表对应两个表文件
+           表名.frm(表结构)  表名.ibd(表内容/数据 和 索引)
+
+ (2)myisam 特点
+    MyISAM storage engine
+     不支持事务，事务回滚，外键
+     支持表级锁
+     存储方式：一个表对应三个表文件
+           表名.frm(表结构)  表名.MYD(表内容/数据)  表名.MYI(索引)
+
+
+  附：事务：对数据库服务的访问过程(连接数据库服务器   操作数据   断开连接)
+      事务回滚：在事务执行过程中，任何一步操作失败，都会恢复之前的所有操作。
+         mysql数据库服务使用事务日志文件记录，对innodb存储引擎表执行的sql操作
+            cd /var/lib/mysql
+            ibdata1       数据源(sql命令执行后产生的数据信息)
+            iblogfile0    
+            iblogfile1    
+      行级锁：(innodb) 只给表中当前被操作的行加锁
+      表级锁：(myisam) 给整张表加锁
+      锁粒度：
+      锁的作用：解决对表的并发访问冲突问题(select delete insert update)
+               如：update t1 set name="tom" where name="lucy"
+               update t1 set name="bob" where name="lucy" 两个人同时修改会发生冲突  
+      锁类型：读锁      共享锁
+               写锁      互斥锁  
+
+7.建表时如何决定表使用那种存储引擎
+ 被执行写操作多的表适合使用innodb存储引擎，并发访问量大
+ 被读操作多的表时和myisam存储引擎，节省系统资源
+ 
+8.工作中怎么决定数据库服务器使用的存储引擎
+
+二、数据导入导出(批量存储数据)
+1.数据导入的命令格式及注意事项
+ 数据导入：把系统文件的内容存储到数据库服务器的表里
+            把系统已有用户的信息保存到库下的表里 
+ 创建存储数据表：
+ create table 库名.表名(
+  username char(50),
+  password char(1),
+  uid int(2),
+  gid int(2),
+  comment char(100),
+  homedir char(100),
+  shell char(50),
+  index(username)
+   );
+ 查看导入文件内容时，默认在系统的什么目录下搜索文件
+ show variables like"secure_file_priv";
+ 导入数据的命令格式：
+  load data infile "目录/文件名" 
+  into table 表名 
+  fields terminated by "分隔符" 
+  lines terminated by "\n";
+
+
+mysql> load data infire "/var/lib/mysql-files/passwd" 
+    -> into table usertab
+    -> fields terminated by ":"
+    -> lines terminated by "\n";
+
+mysql> alter table usertab add id int(5) primary key auto_increment first;
+
+2.数据导出的命令格式及注意事项
+mkdir /mysqldata
+chown	mysql /mysqldata
+vim /etc/my.cnf
+[mysqld]
+secure_file_priv="/mysqldata"
+
+导出数据命令格式：
+ select * from 库名.表名
+ into outfile "目录/文件名"
+[fields terminated by "分隔符"
+ lines terminated by "\n"]
+ ;
+
+三、管理表记录
+插入记录 insert into (值要与字段类型和约束条件匹配)
+插入1条记录给所有字段赋值
+insert into 库名.表名 values(字段值列表)；
+插入N条记录给所有字段赋值
+insert into 库名.表名 values(字段值列表),(字段值列表)；
+插入1条记录给指定字段赋值
+insert into 库名.表名(字符名) values(字段值列表)；
+
+查看
+select 字段名列表 from 库名.表名;
+select 字段名列表 from 库名.表名 [where 匹配条件];
+select * from 库名.表名;
+select 字段名1,字段名2,字段名3  from 库名.表名;
+
+修改
+update 库名.表名 set 字段名=值,字段名=值 where 匹配条件;  修改与条件匹配字段的值
+update 库名.表名 set 字段名=值,字段名=值;   修改所有字段的值
+
+删除
+delete  from  库名.表名  where 匹配条件;  修改与条件匹配字段的值
+delete  from  库名.表名    修改所有字段的值
+
+四、匹配条件(查看修改删除记录时可以加的条件)
+
+where  匹配条件
+
+匹配空         字段名 is null
+                字段名 is not null
+数值比较       字段名(类型tinyint smallint mediumint int bigint float double) 符号(= != < <= > >=) 数字
+字符比较       字段名(类型char varchar text blob)    字符(= !=)     "字符串"
+范围内比较     字段名    between  数字1   and  数字2     在...之间...
+                字段名    in    (值列表)      在...里
+                字段名    not  in   (值列表)  不在...里
+逻辑计较       逻辑and     多个条件同时成立才匹配
+                逻辑or      多个条件中一个条件成立就匹配
+                逻辑!或not   取反
+模糊匹配        字段名  like  '表达式'；
+                %  表示0个或者多个字符          like '_%_' 匹配大于等于两个字符
+                _  表示任意1个字符              
+正则匹配        字符名  regexp  '正则表达式'
+             ^     regexp '^..$'
+             $     regexp '..'
+             .     regexp 'a.*t'
+             *     regexp '^a.*t$'
+            [ ]    regexp '[0-9]'    
+四则运算(select 和 update 操作是可以做数字计算)
+      字段类型必须数值类型(整形 或浮点型)
+       +    -    *   /   % 
+      如：
+ select username,age,2017-age [as] s_year,uid+gid [as] ugid,(uid+gid)/2 [as] pjz from usertab where username="mysql";
+
+聚集函数(对字段的值做统计，字段的类型要求是数值类型)
+count(字段名)  统计字段的个数
+sum(字段名)    求和
+max(字段名)    输出字段的最大值
+min(字段名)    输出字段的最小值
+avg(字段名)    输出字段的平均值
+
+查询不显示字段的重复值      distinct 字段名    
+       select distinct shell from usertab where uid >10 and uid<=100;
+查询分组                     group  by 字段名
+     select shell from usertab where uid>10 and uid<=100 group by shell;
+查询排序                     order by 字段名(按照数值类型的字段排队) asc(升序)|desc(降序)(默认为升序);
+    select  username,uid from usertab where uid>10 and uid<=100 order by uid [asc]
+限制查询显示行数(默认显示所有查询的记录)           limit 数字;(显示查询结果的前几行)
+                                          limit 数字1,数字2;(显示查询结果指定范围的行)从'数字1+1'行开始显示，显示'数字2'行
+
+
+复制表所有记录的命令： create table (新)库名.新表名  select * from (旧)库名.(旧)表名
+只复制表结构的命令：create table (新)库名.新表名  like (旧)库名.(旧)表名
+
+
+=========================================================================
+
+在mysql里面可以在系统命令前加 system 来运行系统的命令
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

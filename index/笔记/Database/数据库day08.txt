@@ -1,0 +1,191 @@
+
+
+
+部署mysql高可用集群
+一、集群定义：使用多台服务器提供相同的服务
+二、高可用集群定义：主备模式(正在被客户端访问的叫做主，当主挂掉时备用服务器自动接收客户端访问)
+
+三、配置mysql数据库服务高可用集群(MHA+主从同步)
+3.1 MHA软件介绍
+3.2 配置MHA集群
+3.2.1 在所有主机上安装perl安装包(51-56)
+]#cd mha-soft-student
+]#yum -y install perl-*.rpm
+28
+
+3.2.2 在所有主机上安扎mha_node软件包(51-56)
+yum -y install perl-DBD-mysql
+rpm -ivh mha4mysql-node-0.56-0.el6.noarch.rpm
+
+3.2.3 只管理"主机56"上安装mha_manager软件包
+yum -y install perl-ExtUtils-* perl-CPAN*
+tar -zxcf mha4mysql-manager-0.56.tar.gz
+cd mha4mysql-manager-0.56
+perl Makefile.PL
+make
+make install
+
+3.2.4检查配置环境：
+
+在51 52 53上如下授权并检查
+select user,host from mysql.user where user="repluser";
+show grants for repluser@"%";
+grant replication slave on *.* to repluser@"%" identified by "123456";
+
+在主机51-55做如下授权：
+grant all on *.* to root@"%" identified by "123456";
+
+3.2.5拷贝命令(56)
+cp mysql安装包/mha4mysql-manager-0.56/bin/* /usr/local/bin/
+ls /usr/local/bin/masterha_*
+	
+3.2.6创建工作目录 和 主配置文件
+mkdir /etc/mha_manager/
+cp mysql安装包/mha4mysql-manager-0.56/samples/conf/app1.cnf /etc/mha_manager/
+
+3.2.7创建故障切换脚本(56)
+ls mysql安装包/mha4mysql-manager-0.56/samples/scripts/master_ip_failover
+
+cp mysql安装包/mha4mysql-manager-0.56/samples/scripts/master_ip_failover /usr/local/bin/
+ls /usr/local/bin/master_*
+
+3.2.8编辑主配置文件(56) app1.cnf
+vim /etc/mha_manager/app1.cnf
+
+[server default]
+manager_workdir=/etc/mha_manager
+manager_log=/etc/mha_manager/manager.log
+master_ip_failover_script=/usr/local/bin/master_ip_failover
+
+ssh_user=root
+ssh_port=22
+
+repl_user=repluser     
+repl_password=123456
+
+user=root
+password=123456
+
+[server1]
+hostname=192.168.4.51
+port=3306
+
+[server2]
+hostname=192.168.4.52
+candidate_master=1
+port=3306
+
+[server3]
+hostname=192.168.4.53
+candidate_master=1
+port=3306
+
+[server4]
+hostname=192.168.4.54
+no_master=1
+
+[server5]
+hostname=192.168.4.55
+no_master=1
+
+
+2.2.9验证配置
+验证ssh 免密码登陆 数据节点主机
+]#masterha_check_ssh --conf=/etc/mha_manager/app1.cnf
+
+Sat May  5 17:24:31 2018 - [info] All SSH connection tests passed successfully.
+
+MySQL Replication Health is OK.
+
+验证主从同步
+]#masterha_check_repl --conf=/etc/mha_manager/app1.cnf
+
+
+
+四、测试高可用配置
+4.1 在主库上手动部署vip 地址  192.168.4.100
+ ifconfig eth0:1 192.168.4.100/24
+
+4.2 修改故障切换脚本 指定vip地址的部署信息
+ my $vip='192.168.4.100' 
+
+4.3启动管理服务，并查看服务状态
+ masterha_manager --conf=/etc/mha_manager/app1.cnf --remove_dead_master_conf --ignore_last_failover
+ 
+ masterha_check_status --conf=/etc/mha_manager/app1.cnf
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

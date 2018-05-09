@@ -1,0 +1,317 @@
+
+
+
+一、数据的备份与恢复
+1.数据备份相关概念
+  1.1数据备份的目的：数据被误删除 或 设备损坏导致数据丢失，是备份文件恢复数据。
+  1.2数据备份方式
+      1.2.1物理备份：指定备份库和表对应的文件
+                 cp -r /var/lib/mysql /opt/mysql.bak
+                 cp -r /var/lib/mysql/day04 /opt/mysql.bak
+	
+             如：    rm -rf /var/lib/mysql/bbsdb
+                 cp -r /opt/mysql.bak /var/lib/mysql/bbsdb
+                 chown -R mysql:mysql /var/lib/mysql/bbsdb
+                 systemctl restart mysqld
+
+      1.2.2逻辑备份：在执行备份命令时，根据备份的库表以数据生成对应的sql命令，把sql命令存储到指定的文件里
+                 mysqldump -uroot -p123456                       
+                 
+
+
+
+  1.3数据备份策略
+     1.3.1完全备份 备份所有数据(一张表的所有数据  一个库的所有数据  一台数据库的所有数据)
+     1.3.2备份新产生的数据
+           1.3.2.1差异备份  备份自完全备份后所有新产生的数据
+           1.3.2.2增量备份  备份自上一次备份后新产生的数据
+
+  1.4工作中对数据备份 
+     1.4.1选择备份策略
+           1.4.1.1完全备份+差异备份
+                            06:00     t1(条)    文件名     备份数据(条)
+                  周一：完全备份                10           1.sql      10
+                  周二：差异备份                3            2.sql      3
+                  周三：差异备份                5            3.sql      8 
+                  周四：差异备份                2            4.sql      10
+                  周五：差异备份                7            5.sql      17
+                  周六：差异备份                4            6.sql      21
+                  周天：差异备份                1            7.sql      22
+                                 *恢复的时候只需要1.sql和7.sql就可以恢复
+           1.4.1.2完全备份+增量备份
+                           06:00     t1(条)    文件名     备份数据(条)
+                  周一：完全备份                10           1.sql      10
+                  周二：增量备份                3            2.sql      3
+                  周三：增量备份                5            3.sql      5
+                  周四：增量备份                2            4.sql      2
+                  周五：增量备份                7            5.sql      7
+                  周六：增量备份                4            6.sql      4
+                  周天：增量备份                1            7.sql      1
+                                 *恢复的时候需要1.sql,2.sql,3.sql,4.sql,5.sql,6.sql和7.sql就可以恢复
+
+     1.4.2数据备份时间        数据库服务器访问量少的时候执行备份
+     1.4.3数据备份频率        根据数据产生量决定备份频率
+     1.4.4备份文件的命名      库名-日期.sql
+     1.4.5备份文件的存储设置  在服务器本机上存一份，在独立的电脑上在存一份
+     1.4.6执行备份             使用周期性计划任务执行备份脚本
+
+
+2.完全备份与完全恢复
+  2.1完全备份的命令格式： mysqldump -uroot -p密码 数据库名 > 目录名/文件名.sql (mysqldump [选项] 库名 [表名] > 目录名/文件名.sql)
+                           备份一个数据库的所有数据备份到一个文件里  数据库名 > 目录名/文件名.sql
+                           备份多个库的所有数据备份一个文件里  -B[--databases]  DB1 [DB2 DB3... > 目录名/文件名.sql
+                           备份一台数据库服务器的所有数据备份到一个文件里  -A[--all-databases](备份所有数据) > 目录名/文件名.sql  
+                           备份一个表的所有数据备份到一个文件里  数据库名  表名  > 目录名/文件名.sql
+                     如：  mysqldump -uroot -p123456  day04 > /mysqldata/备份
+                     mysqldump -uroot -p123456  day04.t1 > /mysqldata/备份
+                           
+
+  2.2完全备份的缺点：
+     2.2.1备份和恢复数据会给表加写锁
+     2.2.2使用完全备份文件恢复数据，只能把数据恢复到备份时的状态。完全备份后新写入数据无法恢复
+     2.2.3数据量大时，备份和恢复数据都受磁盘I/O的影响
+
+  2.3完全恢复的命令格式： mysql -uroot -p123456  库名  [表名]< /mysqldata/备份/文件名.sql
+                        如：mysql -uroot -p123456  day04  <  /mysqldata/备份/day04-.sql
+                     可以将备份的文件恢复到其他的库里去
+
+
+3.增量备份与增量恢复
+  3.1启动mysql数据库服务的binlog日志文件 实现实时增量备份
+     3.1.1日志binlog介绍：mysql数据库服务日志文件的一种，默认没有开启。记录除查询之外的sql命令。
+                             (查询命令：select show desc)(增删改命令：insert delete update create drop)
+     3.1.2启用binlog日志：vim /etc/my.cnf
+                      [mysqld]
+                      server_id=电脑主即位(如：51)
+                      log-bin
+                      binlog-format="mixed"  #即记录select有记录select命令执行后上下文的改变
+                      systemctl restart mysqld
+                      ls /var/lib/mysql/主机名-bin.000001   
+                      cat /var/lib/mysql/主机名-bin.index
+     3.1.3查看binlog日志文件内容：mysqlbinlog /var/lib/mysql/主机名-bin.00000
+                ------------------可以自定义binlog日志文件存储的位置和文件名称
+                         mkdir /mylog
+                         chown mysql /mylog
+                         vim /etc/my.cnf
+                         server_id=51
+                         #log-bin
+                         log-bin=/mylog/cxx
+                         binlog-format="mixed"
+                         :x
+
+
+
+     3.1.4手动生成新的日志文件的方法.
+        *当日志大小大于500M的时候生成第二个日志
+        systemctl restart mysqld
+        flush logs; 生成新的日志文件
+        mysql -uroot -p密码 -e "flush logs"
+        mysqldump -uroot -p密码 --flush-logs 库名 > 目录/xx.sql
+        
+          使用一个新的日志文件 记录 新创建的webdb库的初始操作。
+        flush logs;
+        create database webdb;
+        use webdb;
+        create table webdb.a(id int);
+        insert into webdb.a values(100);
+        insert into webdb.a values(101);
+        flush logs;
+
+
+     3.1.5删除已有的binlog日志文件
+          删除所有日志文件：                reset master;   
+          删除指定文件之前的日志文件：     purge master logs to "binlog文件名"
+                             如：            purge master logs to  "cxx.000003"
+          show master status; 显示
+     3.1.6日志文件记录sql命令的方式
+          有两种： 
+          偏移量：# at 561(开始偏移量)
+              #180428 14:17:54 server id 51  end_log_pos 657 CRC32 0x5e80872a 	Query	thread_id=6	exec_time=0	error_code=0
+               SET TIMESTAMP=1524896274/*!*/;
+               insert into t1 values(102)
+                   /*!*/;
+              # at 657
+              #180428 14:17:54 server id 51  end_log_pos 688 CRC32 0x9f457a15 	Xid = 38
+              COMMIT/*!*/;
+              # at 688(结束偏移量)
+
+          记录sql命令的执行的时间
+          读取日志文件指定范围内的sql命令恢复数据
+           mysqlbinlog  [选项]  日志文件名  |   mysql -uroot -p123456
+            选项：1.指定偏移量的选项：--start-position=偏移量的值  --stop-position=偏移量的值	
+                  2.指定时间范围的选项： --start-datetime="yyyy-nn-dd hh:mm:ss"  --stop-datetime="yyyy-nn-dd hh:mm:ss"           
+           mysqlbinlog --start-position=293   --stop-position=1450  /mylog/cxx.000003  |   mysql -uroot -p123456
+
+     3.1.7使用binlog日志恢复数据
+         mysqlbinlog   日志文件名  |   mysql -uroot -p123456
+         mysqlbinlog  [选项]  日志文件名  |   mysql -uroot -p123456
+        如：mysqlbinlog  /mylog/cxx.000003  |   mysql -uroot -p123456
+
+  3.2安装第3方软件提供备份命令，对数据做增量备份
+      3.2.1软件介绍： Xtraackup工具，Percona在线热备不锁表，快源软件，适用于生成环境。
+      3.2.2安装软件： yum -y install libev-4.15-1.el6.rf.x86_64.rpm percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm
+      3.2.3备份命令的使用格式：/usr/bin/innobackupex 命令 支持Myisam,InnoDB和XtraDB存储引擎的表
+                          /usr/bin/xtrabackup 命令  支持InnoDB和XtraDB存储引擎的表
+                       innobackupex 命令 <选项>  man innobackupex  恢复数据的时候要求数据库文件为空
+                            选项：
+                      --host 主机名
+                      --user 用户名
+                      --port 端口号
+                      --password 密码
+                      --databases="库名"  库名表示方式"库名1 库名2 库名3" "库名.表名"
+                      --no-timestamp  不会生成以当前时间日期的子目录名了，
+                             常用格式：innobackupex --user root --password 123456 --databases="mysql sys  performance_schema"
+                             
+      3.2.4完全备份与恢复：innobackupex 命令    
+            3.2.4.1完全备份：innobackupex --user root --password 123456 --databases="mysql sys  performance_schema" /allbak(备份的时候指定的)  --no-timestamp    
+            3.2.4.2完全恢复：rm -rf /var/lib/mysql
+                        mkdir /var/lib/mysql
+                        innobackupex --user root --password 123456 --copy-back /allbak
+                        chown -R mysql:mysql /var/lib/mysql
+                        systemctl restart mysqld
+                        mysql -uroot -p123456
+      3.2.5增量备份与恢复：innobackupex 命令
+      3.2.6增量备份的工作过程：innobackupex 命令
+      3.2.7恢复完全备份中的当表：
+4.
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+mysqldump -uroot -p123456 --flush-logs day04.t1 > /mysqldata/备份
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+每周一晚上18：00备份studb库的所有数据到本机的/dbbak目录下，备份文件名要求：日期-库名.sql
+
+
+vim /root/bakstudb.sh
+#!/bin/bash
+day=`date +%F`
+if [ ! -e /dbbak ];then
+   mkdir /dbbak
+fi
+mysqldump -uroot -p123456 studb > /dbbak/${day}-studb.sql
+:x
+chmod +x /root/bakstudb.sh
+ls /dbbak
+
+crontab -e 
+00 18 * * 1 /root/bakstudb.sh &> /dev/null
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+[root@mysql51 ~]# cal    查看日期表
+      四月 2018     
+日 一 二 三 四 五 六
+ 1  2  3  4  5  6  7
+ 8  9  10 11 12 13 14
+15 16  17  18 19 20 21
+22 23 24 25 26 27 28
+29 30
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
