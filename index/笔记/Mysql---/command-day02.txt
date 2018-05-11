@@ -1,0 +1,209 @@
+create   database  db2;
+use   db2;
+create  table   t2(
+name   char(3),
+level    int(3)  zerofill
+);
+insert into  db2.t1  values  ("bob",1);
+insert into  db2.t1  values  ("bob",99);
+insert into  db2.t1  values  ("bob",218);
+insert into  db2.t1  values  ("bob",7218);
+name     level
+bob         001
+bob         099
+bob         218
+bob       7218
+
++++++++++++++++++++++++++++++++
+create  table   t5(
+classroom   char(7)  default   "nsd1801",
+name   char(5)  not   null  ,
+age    tinyint(2)  unsigned  zerofill  default   18,
+sex     enum("boy","girl")  not  null  default  "boy"
+);
+desc  t5;
+insert into  t5(name)values("lucy");
+insert into  t5    values("nsd1802","alice",31,"girl");
+select   *  from   t5;
+++++++++++++++++++++++++++++++++++++
+二、修改表结构
+
+alter  table   studb.t1   add   name   char(15)  first ;
+alter  table   studb.t1   add   addrhome   varchar(50)  default  
+
+"beijing";
+alter  table   studb.t1   add   sex   enum("boy","girl") not null  
+
+default "boy"  after   name;
+
+desc  studb.t1;
+select  * from  studb1;
+
+
+mysql> alter  table   studb.t1   drop sex  ,   drop name;
+
+mysql> alter table  t1  modify  addrhome char(10) default 
+
+"beijing";
+
+mysql> alter table   t1  modify level smallint(6) not null;
+
+mysql> alter table t1 modify age tinyint(4) first;
+
+mysql> alter table  t1  change addrhome  home char(10) default 
+
+"beijing";
+
+mysql> alter table  t1   rename    dogperson;
+
++++++++++++++++++++
+3.1.1普通索引的使用（index）
+使用规则?
+
+查看索引
+desc  表名;
+show   index  from   表名;
+
+desc   studb.t2;
+show  index  from studb.t2;
+
+创建索引：
+***在已有表创建索引
+create   index   索引名  on   表名（字段名）；
+
+create  index    aaa     on    studb.t2(age);
+desc   studb.t2
+
+mysql> show   index  from  studb.t2\G;
+Key_name: aaa           #索引名
+Column_name: age    #字段名
+Index_type: BTREE (二叉树)    Hash     #索引类型
+
+***建表时创建索引
+create  table  表名（
+字段列表，
+index(字段名)，
+index(字段名)，
+）;
+
+create  table   studb.t21(
+classroom   char(7)    default   "nsd1801",
+name          char(5)  not   null  ,
+age             tinyint(2)  unsigned  zerofill  default   18,
+sex              enum("boy","girl")  not  null  default  "boy",
+index(name),
+index(age),
+index(classroom)
+);
+
+desc  studb.t21;
+show  index  from  studb.t21\G;
+
+删除索引   drop   index   索引名  on   表名；
+mysql> drop  index  aaa on  t2;
+mysql>  desc   t2;
+mysql>  show  index  from  t2;
+
+
+++++++++++++++++++++++++++++++++++
+在已有表创建 主键
+mysql>   alter table  t21  add  stu_id  char(9) first ;
+
+mysql>   alter table  t21  add  primary key(stu_id);
+mysql>  desc   t21;
+
+insert into  t21  values(null,"nsd1801","lxd",18,"boy");  报错
+insert into  t21  values("nsd180101","nsd1801","lxd",18,"boy"); 可
+
+以
+insert into  t21  values("nsd180101","nsd1801","gxh",18,"boy"); 报
+
+错
+insert into  t21  values("nsd180118","nsd1858","gxh",18,"boy");  可
+
+以
+
+select  *  from  t21;
+
+alter  table   表   drop    primary  key；
+desc  t21;
+insert into  t21  values("nsd180101","nsd1801","gxh",18,"boy"); 可
+
+以了
+
+建表时创建主键
+create  table  表名（
+字段列表，
+primary  key(字段名)
+）；
+
+
+create  table  表名（
+字段  类型（宽度）    primary  key，
+......
+）；
+
+create  table   studb.t22(
+person_id  char(18),
+name  char(10),
+age  tinyint(2)  unsigned,
+primary key(person_id)
+);
+
+desc studb.t22;
+insert into    studb.t22  values(null,"bob",21); 错误
+insert into    studb.t22  values("xxxxxx","bob",21); 可以了
+insert into    studb.t22  values("xxxxxx","lucy",19); 错误
+insert into    studb.t22  values("Fxxxxx","lucy",19); 可以了
+
+create  table   studb.t24(
+person_id  char(18)   primary   key,
+name  char(10),
+age  tinyint(2)  unsigned 
+);
+
+desc   studb.t24;
+
+创建复合主键：多个字段一起做主键，插入记录时，只要做复合主键字段的值
+
+不同时重复，就可以插入记录。
+mysql> create  table studb.t23( 
+    -> clientip   char(15),
+    -> port smallint(2),
+    -> status  enum("allow","deny"),
+    -> primary  key(clientip,port)
+    -> );
+mysql> desc   studb.t23
+
+insert into  studb.t23  values("1.1.1.1",22,"allow");可以
+insert into  studb.t23  values("1.1.1.1",22,"deny")；报错
+insert into  studb.t23  values("2.1.1.1",22,"deny")；可以
+
+pri              pri                                    
+clientip     port        status
+1.1.1.1      22           allow
+1.1.1.1      23           allow
+2.1.1.1      23           deny
+
+主键primary  key  通常和auto_increment连用。
+create  table   studb.t27(
+stu_id  int(2)  zerofill    primary   key  auto_increment,
+name  char(10),
+age  tinyint(2)  unsigned,
+sex   enum("boy","girl")
+);
+
+insert into  studb.t27(name,age,sex)values("bob",19,"girl");
+insert into  studb.t27(name,age,sex)values("bob",19,"girl");
+select  * from t27;
+
+向已有表中添加记录编号字段id  并使其字段的值自动增长方式赋值
+mysql> alter table dogperson add  id int(2) primary key 
+    -> auto_increment first;
+
+select  * from  dogperson;
+select  * from  dogperson  where  id=3;
+
+alter  table  studb.t22  add primary key(name);
++++++++++++++++++++++++++++++
+外键的使用在知识点文档里。

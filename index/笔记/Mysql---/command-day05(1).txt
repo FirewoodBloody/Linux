@@ -1,0 +1,255 @@
+day05数据备份与恢复
+一数据备份相关概念
+1.1 数据备份的目的？  数据被误删除 或 设备损害导致数据丢失 ，是备份文件恢复数据。
+1.2数据备份方式？
+物理备份： 指定备份库和表对应的文件
+51
+cp   -r   /var/lib/mysql   /opt/mysql.bak
+cp  -r  /var/lib/mysql/bbsdb   /opt/bbsdb.bak
+
+rm -rf  /var/lib/mysql/bbsdb
+cp   -r  /opt/bbsdb.bak    /var/lib/mysql/bbsdb
+chown  -R  mysql:mysql   /var/lib/mysql/bbsdb
+systemctl  restart  mysqld
+
+
+51  scp  /opt/mysql.bak   192.168.4.51:/root/
+
+52  rm  -rf /var/lib/mysql
+      cp   -r  /root/mysql.bak   /var/lib/mysql
+      chown  -R  mysql:mysql   /var/lib/mysql
+      systemctl  restart  mysqld
+
+逻辑备份： 在执行备份命令时，根据备份的库表及数据生成对应的sql命令，把sql存储到指定的文件里。
+
+
+1.3数据备份策略？
+完全备份  备份所有数据（一张表的所有数据  一个库的所有数据  一台数据库的所有数据）
+
+备份新产生数据（差异备份 和 增量备份  都备份新产生的数据 ）
+差异备份 备份自完全备份后，所有新产生的数据。
+增量备份 备份自上次备份后，所有新产生的数据。
+
+1.4工作中如何对数据做备份？
+1.4.1  选择备份策略：
+                             完全备份+差异备份
+                             完全备份+增量备份
+1.4.2  数据备份时间    数据服务器访问量少的时候执行备份
+1.4.3  数据备份频率    根据数据产生量，决定备份频率
+1.4.4 备份文件的命名   库名-日期.sql
+1.4.5 备份文件的存储设置  准备独立的存储设备存储备份文件
+1.4.6 如何执行备份  使用周期性计划任务执行本机脚本
+
+
+完全备份+差异备份
+                 06:00      t1	文件名        数据
+1   完全                    10               1.sql	 10
+2   差异                    3		2.sql	 3
+3                              5	3.sql           8
+4		2	4.sql	 10
+5		7	5.sql	17
+6		4	6.sql	21
+7 差异                         1	7.sql	22    	
+
+完全备份+增量备份
+                06:00      t1	文件名        数据
+1   完全                    10               1.sql	 10
+2   增量                    3		2.sql	 3
+3                              5	3.sql           5
+4		2	4.sql	 2
+5		7	5.sql	7
+6		4	6.sql	4
+7  增量                         1	7.sql	1  
++++++++++++++++++++++++++++++
+二完全备份与完全恢复
+2.1 完全备份数据
+]# mkdir  -p /mydatabak
+]# mysqldump -uroot -p654321  studb > /mydatabak/studb.sql
+]# mysqldump -uroot -p654321  db3 user3 > /mydatabak/db3-user3.sql
+
+]#cat /mydatabak/studb.sql
+]#cat  /mydatabak/db3-user3.sql
+
+2.3 完全恢复数据
+]# mysql -uroot -p654321  studb  < /mydatabak/studb.sql 
+]# mysql -uroot -p654321  db3   < /mydatabak/db3-user3.sql
+
+使用source 命令恢复数据
+mysql> create database  bbsdb;
+mysql> use bbsdb;
+mysql> source  /mydatabak/studb.sql
+
+
+每周一晚上18:00备份studb库的所有数据到本机的/dbbak目录下，备份文件名称要求如下  日期_库名.sql。
+
+]#vim /root/bakstudb.sh
+#!/bin/bash
+day=`date +%F`
+if [ ! -e /dbbak  ];then
+     mkdir /dbbak
+fi
+mysqldump  -uroot  -p654321  studb  >  /dbbak/${day}_studb.sql
+:wq
+]# chmod   +x   /root/bakstudb.sh
+]#/root/bakstudb.sh
+]# ls /dbbak/*.sql
+
+]#crontab  -e
+00  18   *  *  1        /root/bakstudb.sh  &> /dev/null
+:wq
+
+
+3.1  启动mysql数据库服务的binlog日志文件 实现实时增量备份
+3.1.1 binlog日志介绍：是mysql数据库服务日志文件的一种，默认没有启用。记录除查询之外的sql命令。
+查询命令例如： select   show   desc  
+写命令例如： insert   update   delete   create  drop 
+
+3.1.2 启用binlog日志
+]#vim /etc/my.cnf
+[mysqld]
+server_id=51
+log-bin
+binlog-format="mixed"
+:wq
+]# systemctl  restart  mysqld
+
+]# ls /var/lib/mysql/主机名-bin.000001
+]# cat  /var/lib/mysql/主机名-bin.index
+
+3.1.3 查看binlog日志文件内容
+]#mysqlbinlog   /var/lib/mysql/mysql51-bin.000001
+
+****可以自定义binlog日志文件存储的位置和文件名称
+]#mkdir  /mylog
+]#chown   mysql   /mylog
+]#setenforce  0 
+
+]#vim /etc/my.cnf
+[mysqld]
+server_id=51
+#log-bin
+log-bin=/mylog/plj
+binlog-format="mixed"
+:wq
+
+]# systemctl  restart  mysqld
+]#ls /mylog/plj.*
+plj.000001   plj.index
+
+3.1.4 手动生成新的日志文件方法
+*默认日志文件大于500M时自动创建新日志文件
+
+]# systemctl  restart mysqld
+
+mysql> flush logs;
+
+]# mysql -uroot -p密码 -e "flush logs"
+
+]# mysqldump  -uroot -p密码  --flush-logs  库名  > 目录/xx.sql
+
+使用一个新的日志文件 记录 新创建的webdb库的初始操作。
+mysql> flush  logs;
+mysql> create database webdb; create table webdb.a(id int);
+mysql> insert into webdb.a values(100);
+mysql> insert into webdb.a values(101);
+mysql> flush logs;
+删除webdb库，使用 binlog日志文件恢复webdb库的数据。
+mysql>  drop   database  webdb;
+
+3.1.7 使用binlog日志恢复数据
+]#mysqlbinlog  /mylog/plj.000008   |  mysql  -uroot  -p654321 
+
+3.1.5 删除已有的binlog日志文件
+
+mysql> purge  master  logs  to  "binlog文件名; 
+             删除指定日志文件之前的日志文件
+mysql> purge  master  logs  to  "plj.000005";
+
+mysql>  reset master ;  删除所有的日志文件重新生成第一个日志文件
+mysql> show master status;  显示当前正在使用的binlog日志信息
+
+]#mysqlbinlog   日志文件名；
+
+3.1.6 binlog日志记录sql命令方式
+记录方式有2种：  偏移量   、记录sql命令执行的时间
+
+指定偏移量范围选项 
+--start-position=偏移量的值  
+--stop-position=偏移量的值
+
+指定时间范围选项
+--start-datetime="yyyy-mm-dd  hh:mm:ss"  
+--stop-position="yyyy-mm-dd  hh:mm:ss" 
+ ++++++++++++++++++++++++
+读取日志文件指定范围内的sql命令恢复数据。
+]# mysqlbinlog  --start-position=293  --stop-position=1450   plj.000001   |  mysql  -uroot  -
+
+p654321
+++++++++++++++++++++++++++++
+
+]#mysqldump  -uroot  -p654321  --flush-logs  db3.user3  >  /root/user3.sql
+
+mysql> insert into db3.user3 values("a","b","c");
+mysql> insert into db3.user3 values("aa","b","c");
+mysql> insert into db3.user3 values("ab","b","c");
+mysql> insert into db3.user3 values("ac","b","c");
+
+mysql> delete from  db3.users;
+mysql> select  * from  db3.user3;
+
+]#mysql  -uroot  -p654321  db3  <  /root/user3.sql
+mysql> select  * from  db3.user3;
+
+]#mysqlbinlog    --start-position=偏移量的值  
+--stop-position=偏移量的值  日志文件名 |  mysql  -uroot  -p654321 
+
+mysql> select  * from  db3.user3;
++++++++++++++++++++++++++++++++++
+3.2  安装第3方软件提供备份命令，对数据做增量备份
+软件介绍 Percona 开源软件  在线热备不锁表  适用于生成环境。
+
+安装软件
+]# rpm -ivh  libev-4.15-1.el6.rf.x86_64.rpm
+]# yum -y  install   perl-DBD-mysql   perl-Digest-MD5
+]# rpm  -ivh  percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm
+]# rpm  -ql  percona-xtrabackup-24
+
+提供2个备份命令
+/usr/bin/innobackupex命令集成了命令xtrabackup，所以可以支持MYISAM存储引擎
+
+/usr/bin/xtrabackup命令仅支持InnoDB和XtraDB存储引擎的表
+
+innobackupex备份命令的使用格式？
+]#innobackupex  <选项>
+]# man  innobackupex
+
+常用选项？
+--user  用户名
+--password  密码
+--databases="库名"     
+                     "库名1  库名2"
+                     "库名.表名"
+--no-timestamp  不使用时间戳做备份文件的子目录名
+
+-------------------innobackupex完全备份 与 完全恢复
+]# innobackupex  --user  root   --password   654321  --databases="mysql   performance_schema  
+
+sys   gamedb"   /allbak  --no-timestamp
+
+完全恢复   --copy-back
+]# rm   -rf  /var/lib/mysql
+]# mkdir  /var/lib/mysql
+]# innobackupex  --user root --password 654321  --copy-back  /allbak 
+]# chown  -R  mysql:mysql  /var/lib/mysql
+]#  systemctl  restart  mysqld
+]#mysql   -uroot  -p654321
+mysql> show  databases;
+mysql> select  * from  gmaedb.t1;
+
+++++++++++++++++++++++++
+
+innobackupex增量备份与恢复
+
+innobackupex增量备份的工作过程？
+
+恢复完全备份中的当表

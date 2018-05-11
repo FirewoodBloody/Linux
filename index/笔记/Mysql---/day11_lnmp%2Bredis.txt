@@ -1,0 +1,226 @@
+-------------------------------安装nginx
+[root@bogon ~ ]# yum -y  install gcc gcc-c++  pcre-devel  zlib-devel
+[root@bogon ~ ]# tar -zxf nginx-1.12.2.tar.gz 
+[root@bogon ~ ]# cd nginx-1.12.2
+
+[root@bogon nginx-1.12.2]# ./configure --prefix=/usr/local/nginx
+[root@bogon nginx-1.12.2]#  make
+[root@bogon nginx-1.12.2]#  make install 
+
+[root@bogon nginx-1.12.2]# ls /usr/local/nginx/
+conf  html  logs  sbin
+
+[root@bogon nginx-1.12.2]# /usr/local/nginx/sbin/nginx 
+[root@bogon nginx-1.12.2]# netstat -utnalp  | grep nginx
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      15933/nginx: master 
+[root@bogon nginx-1.12.2]#
+
+[root@bogon nginx-1.12.2]# echo "test web"  > /usr/local/nginx/html/test.html
+[root@bogon nginx-1.12.2]# yum -y  install elinks
+
+[root@bogon nginx-1.12.2]# elinks  --dump http://localhost/test.html
+   test web
+[root@bogon nginx-1.12.2]#
+
+-------------------------------安装php-fpm
+[root@bogon ~ ]# yum -y  install php-common
+[root@bogon ~ ]# rpm -ivh php-fpm-5.4.16-42.el7.x86_64.rpm 
+
+[root@bogon lnmp]# systemctl  start php-fpm
+[root@bogon lnmp]# systemctl  status php-fpm
+● php-fpm.service - The PHP FastCGI Process Manager
+   Loaded: loaded (/usr/lib/systemd/system/php-fpm.service; disabled; vendor preset: disabled)
+   Active: active (running) since Thu 2018-04-12 00:53:51 EDT; 5s ago
+ Main PID: 16021 (php-fpm)
+   Status: "Ready to handle connections"
+   CGroup: /system.slice/php-fpm.service
+           ├─16021 php-fpm: master process (/etc/php-fpm.conf)
+           ├─16022 php-fpm: pool www
+           ├─16023 php-fpm: pool www
+           ├─16024 php-fpm: pool www
+           ├─16025 php-fpm: pool www
+           └─16026 php-fpm: pool www
+
+Apr 12 00:53:51 bogon systemd[1]: Starting The PHP FastCGI Process Manager...
+Apr 12 00:53:51 bogon systemd[1]: Started The PHP FastCGI Process Manager.
+[root@bogon lnmp]# netstat -utnalp  | grep php-fpm
+tcp        0      0 127.0.0.1:9000          0.0.0.0:*               LISTEN      16021/php-fpm: mast 
+[root@bogon lnmp]# 
+
+
+-------------------------修改nginx服务的主配置文件 把访问PHP文件的请求，发送给本机的9000端口
+
+[root@bogon ~]# vim /usr/local/nginx/conf/nginx.conf
+ 65         location ~ \.php$ {
+ 66             root           html;
+ 67             fastcgi_pass   127.0.0.1:9000;
+ 68             fastcgi_index  index.php;
+ 69             fastcgi_param  SCRIPT_FILENAME  $document_root/$fastcgi_script_name;
+ 70             include        fastcgi_params;
+ 71         }
+:wq
+
+[root@bogon lnmp]# /usr/local/nginx/sbin/nginx  -s stop
+[root@bogon lnmp]# /usr/local/nginx/sbin/nginx
+
+-------------------------编写网页文件
+[root@bogon lnmp]# vim  /usr/local/nginx/html/test.php
+<?php
+echo  "hello world!!!";
+?>
+:wq
+[root@bogon lnmp]#
+
+--------------------------客户端测试
+[root@bogon lnmp]# elinks  --dump http://localhost/test.php
+   hello world!!!
+[root@bogon lnmp]# 
+
+
+--------------------------安装redis 
+[root@bogon ~ ]# tar -zxf redis-4.0.8.tar.gz
+[root@bogon ~ ]# cd redis-4.0.8
+[root@bogon redis-4.0.8]# make  #源码目录有些好的Makefile文件，所以可以直接执行编译命令
+[root@bogon redis-4.0.8]# mkdir -p /usr/local/redis/etc/
+[root@bogon redis-4.0.8]# mkdir -p /usr/local/redis/bin
+
+                          //编译后安装的文件拷贝到创建的目录下 
+[root@bogon redis-4.0.8]# cp src/redis-server /usr/local/redis/bin/
+[root@bogon redis-4.0.8]# cp src/redis-cli /usr/local/redis/bin/
+[root@bogon redis-4.0.8]# cp src/redis-benchmark /usr/local/redis/bin/
+[root@bogon redis-4.0.8]# cp redis.conf /usr/local/redis/etc/
+
+---------------------------修改主配置文件，让redis服务以守护进程的方式运行
+[root@bogon redis-4.0.8]# sed -n "136p" /usr/local/redis/etc/redis.conf 
+daemonize no
+[root@bogon redis-4.0.8]# 
+[root@bogon redis-4.0.8]# sed -i "136s/no/yes/" /usr/local/redis/etc/redis.conf   //把136行的no 修改为yes
+[root@bogon redis-4.0.8]# 
+[root@bogon redis-4.0.8]# sed -n "136p" /usr/local/redis/etc/redis.conf  //显示修改成功
+daemonize yes
+[root@bogon redis-4.0.8]#
+
+-----------------------------启动redis服务
+[root@bogon redis-4.0.8]# netstat -utnalp  | grep  :6379
+[root@bogon redis-4.0.8]# 
+[root@bogon redis-4.0.8]# 
+[root@bogon redis-4.0.8]# /usr/local/redis/bin/redis-server  /usr/local/redis/etc/redis.conf 
+23233:C 12 Apr 04:47:01.974 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+23233:C 12 Apr 04:47:01.974 # Redis version=4.0.8, bits=64, commit=00000000, modified=0, pid=23233, just started
+23233:C 12 Apr 04:47:01.974 # Configuration loaded
+[root@bogon redis-4.0.8]# 
+[root@bogon redis-4.0.8]# netstat -utnalp  | grep  :6379
+tcp        0      0 127.0.0.1:6379          0.0.0.0:*               LISTEN      23234/redis-server  
+[root@bogon redis-4.0.8]# 
+[root@bogon redis-4.0.8]#
+
+[root@bogon redis-4.0.8]# /usr/local/redis/bin/redis-cli  //本机登陆
+127.0.0.1:6379> ping
+PONG
+127.0.0.1:6379> exit
+[root@bogon redis-4.0.8]# 
+
+--------------------------安装php扩展php-redis
+   27  yum -y  install autoconf
+   28  yum -y  install automake
+   29  rpm -ivh ../php-devel-5.4.16-42.el7.x86_64.rpm 
+   30  which phpize
+   31  /usr/bin/phpize 
+1  tar -zxf php-redis-2.2.4.tar.gz 
+    2  ls
+    3  cd phpredis-2.2.4/
+[root@bogon phpredis-2.2.4]# /usr/bin/phpize 
+Configuring for:
+PHP Api Version:         20100412
+Zend Module Api No:      20100525
+Zend Extension Api No:   220100525
+
+
+[root@bogon phpredis-2.2.4]# find / -name "php-config"
+/usr/bin/php-config
+[root@bogon phpredis-2.2.4]#
+[root@bogon phpredis-2.2.4]# ./configure --with-php-config=/usr/bin/php-config
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+
+[root@bogon phpredis-2.2.4]# make
+[root@bogon phpredis-2.2.4]# make install
+Installing shared extensions:     /usr/lib64/php/modules/
+[root@bogon phpredis-2.2.4]# 
+
+[root@bogon phpredis-2.2.4]# ls /usr/lib64/php/modules/
+curl.so  fileinfo.so  json.so  phar.so  redis.so  zip.so
+[root@bogon phpredis-2.2.4]#
+
+------------------加载redis模块
+[root@bogon ~]# vim /etc/php.ini
+ 731 ;extension_dir  = "./"
+ 731 extension_dir  = "/usr/lib64/php/modules/"
+ 732 extension = "redis.so"
+
+----------------查看是否支持模块
+[root@bogon ~]# php -m  |  grep  -i  redis
+redis
+[root@bogon ~]#
+
+----------------编写网页测试文件
+[root@bogon bin]# ./redis-server /usr/local/redis/etc/redis.conf 
+58195:C 13 Apr 01:02:28.760 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+58195:C 13 Apr 01:02:28.761 # Redis version=4.0.8, bits=64, commit=00000000, modified=0, pid=58195, just started
+58195:C 13 Apr 01:02:28.761 # Configuration loaded
+
+[root@bogon bin]# 
+[root@bogon bin]# ./redis-cli 
+127.0.0.1:6379> ping
+PONG
+127.0.0.1:6379> quit
+[root@bogon bin]# 
+
+[root@bogon bin]# netstat -utnalp  | grep 6379
+tcp        0      0 127.0.0.1:6379          0.0.0.0:*               LISTEN      58196/./redis-serve 
+tcp        0      0 127.0.0.1:37366         127.0.0.1:6379          TIME_WAIT   -                   
+[root@bogon bin]#
+
+-------------------------------------------编写网页测试文件
+[root@bogon bin]# cat /usr/local/nginx/html/redis.php 
+<?php
+$redis = new redis();
+$redis->connect('127.0.0.1',6379);
+$redis->set('redistest','666666');
+echo $redis->get('redistest');
+?>
+[root@bogon bin]#
+
+
+[root@bogon bin]# elinks  --dump http://localhost/redis.php
+   666666
+[root@bogon bin]# 
+[root@bogon bin]# pwd
+/usr/local/redis/bin
+[root@bogon bin]# ./redis-cli    #连接本机的redis服务
+127.0.0.1:6379> get redistest    #查看变量的值
+"666666"
+127.0.0.1:6379> 
+127.0.0.1:6379> quit
+[root@bogon bin]# 
+[root@bogon bin]#
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<?php
+$redis = new redis();
+$redis->connect('127.0.0.1', 6379);
+$redis->auth(“666”); #连接redis服务的密码
+$redis->set('redistest','666666');
+echo $redis->get('redistest');
+
+?>
+
+

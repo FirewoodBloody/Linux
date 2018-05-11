@@ -1,0 +1,319 @@
++++++++++++++搭建redis服务器
+
+安装软件
+[root@localhost ~]# tar -zxf redis-4.0.8.tar.gz 
+[root@localhost ~]# cd redis-4.0.8/
+
+[root@localhost redis-4.0.8]# 
+[root@localhost redis-4.0.8]# rpm -q  gcc  gcc-c++
+未安装软件包 gcc 
+未安装软件包 gcc-c++ 
+[root@localhost redis-4.0.8]# yum  -y  install  gcc  gcc-c++
+
+[root@localhost redis-4.0.8]# make
+
+[root@localhost redis-4.0.8]# make install
+
+初始化配置
+[root@localhost redis-4.0.8]# ./utils/install_server.sh  //初始化配置
+Welcome to the redis service installer
+This script will help you easily set up a running redis server
+
+Please select the redis port for this instance: [6379] //端口
+Selecting default: 6379
+Please select the redis config file name [/etc/redis/6379.conf] //主配文件 
+Selected default - /etc/redis/6379.conf
+Please select the redis log file name [/var/log/redis_6379.log] //日志文件
+Selected default - /var/log/redis_6379.log
+Please select the data directory for this instance [/var/lib/redis/6379] //数据库目录
+Selected default - /var/lib/redis/6379
+Please select the redis executable path [/usr/local/bin/redis-server]  //服务程序所在目录
+
+Selected config:  #配置摘要信息
+Port           : 6379
+Config file    : /etc/redis/6379.conf
+Log file       : /var/log/redis_6379.log
+Data dir       : /var/lib/redis/6379
+Executable     : /usr/local/bin/redis-server
+Cli Executable : /usr/local/bin/redis-cli   //命令行连接redis服务命令
+Is this ok? Then press ENTER to go on or Ctrl-C to abort. //回车完成配置
+Copied /tmp/6379.conf => /etc/init.d/redis_6379 //服务启动脚本
+Installing service...
+Successfully added to chkconfig!
+Successfully added to runlevels 345!
+Starting Redis server...
+Installation successful!
+[root@localhost redis-4.0.8]# 
+
+启动redis服务（软件安装完成后服务自动运行）
+[root@localhost redis-4.0.8]# /etc/init.d/redis_6379 status
+Redis is running (5341)
+[root@localhost redis-4.0.8]# netstat -utnlp  | grep :6379
+tcp        0      0 127.0.0.1:6379          0.0.0.0:*               LISTEN      5341/redis-server 1 
+[root@localhost redis-4.0.8]# 
+
+[root@localhost redis-4.0.8]# ps -C  redis-server
+  PID TTY          TIME CMD
+ 5341 ?        00:00:00 redis-server
+[root@localhost redis-4.0.
+
+连接本机redis服务 
+[root@localhost redis-4.0.8]# redis-cli 
+127.0.0.1:6379> ping
+PONG
+127.0.0.1:6379> set k1 v1
+OK
+127.0.0.1:6379> get k1
+"v1"
+127.0.0.1:6379> SHUTDOWN
+not connected> exit
+[root@localhost redis-4.0.8]# 
+
+
+
+--------配置文件解析（1）
+
+计量单位
+
+
+93 port 6379
+
+70 bind 127.0.0.1
+
+102 tcp-backlog 511
+114 timeout 0
+
+131 tcp-keepalive 300
+
+137 daemonize yes
+
+日志级别
+ 163 # debug (a lot of information, useful for development/testing)
+ 164 # verbose (many rarely useful info, but not a mess like the debug level)
+ 165 # notice (moderately verbose, what you want in production probably)
+ 166 # warning (only very important / critical messages are logged)
+ 167 loglevel notice
+
+ 187 databases 16
+ 172 logfile /var/log/redis_6379.log
+ 533 # maxclients 10000
+ 264 dir /var/lib/redis/6379
+# requirepass foobared 设置登陆密码   设置密码后的登陆方式AUTH <PASSWORD>
+
+MEMORY MANAGEMENT 内存管理
+560 # maxmemory <bytes>
+
+内存清除策略
+ 565 # volatile-lru -> Evict using approximated LRU among the keys with an expire set.   最近最少使用 （针对设置了过期时间的key）
+ 566 # allkeys-lru -> Evict any key using approximated LRU.  删除最少使用的key
+
+ 569 # volatile-random -> Remove a random key among the ones with an expire set. 在设置了过期的key里随机移除
+
+570 # allkeys-random -> Remove a random key, any key. 随机移除key
+ 
+571 # volatile-ttl -> Remove the key with the nearest expire time (minor TTL) 移除最近过期的key
+
+ 572 # noeviction -> Don't evict anything, just return an error on write operations. 不删除 写满时报错
+
+591 # maxmemory-policy noeviction  定义使用的策略
+
+602 # maxmemory-samples 5   选取模板数据的个数 （针对lru 和 ttl 策略）
+
+
+
+
+修改密码后如何调用/etc/init.d/redis_6379 脚本停止服务
+
+给主机53的redis服务设置连接密码 密码是123456
+
+vim /etc/redis/6379.conf
+501   requirepass     123456
+:wq
+
+/etc/init.d/redis_6379   stop
+/etc/init.d/redis_6379   start
+
+
+连接带认证redis服务
+[root@db53 ~]# redis-cli 
+127.0.0.1:6379> ping
+(error) NOAUTH Authentication required.
+127.0.0.1:6379> auth   123456
+OK
+127.0.0.1:6379> ping
+PONG
+127.0.0.1:6379> quit
+
+
+[root@db53 ~]# redis-cli   -a  123456
+127.0.0.1:6379> ping
+PONG
+127.0.0.1:6379> 
+
+]# /etc/init.d/redis_6379   stop
+
+[root@db53 ~]# redis-cli  -p 6379  -a  123456  shutdown
+]# /etc/init.d/redis_6379   start
+
+------设置连接密码后如何使用脚本停止redis服务
+
+vim  /etc/init.d/redis_6379
+ 43             $CLIEXEC -p $REDISPORT -a 123456 shutdown
+:wq
+
+]# /etc/init.d/redis_6379   stop
+
+++++++++++++++++++++++++++++++
+
+]#yum  -y    install   pcre-devel   zlib-devel
+]#tar -zxf nginx-1.12.2.tar.gz 
+]#cd nginx-1.12.2/
+]# ./configure --prefix=/usr/local/nginx
+]#make
+]#make install
+[root@db54 nginx-1.12.2]# ls /usr/local/nginx/
+conf  html  logs  sbin
+
+
+./configure: error: the HTTP rewrite module requires the PCRE library.
+You can either disable the module by using --without-http_rewrite_module
+option, or install the PCRE library into the system, or build the PCRE library
+statically from the source with nginx by using --with-pcre=<path> option.
+
+
+./configure: error: the HTTP gzip module requires the zlib library.
+You can either disable the module by using --without-http_gzip_module
+option, or install the zlib library into the system, or build the zlib library
+statically from the source with nginx by using --with-zlib=<path> option.
+
+
+[root@db54 nginx-1.12.2]# /usr/local/nginx/sbin/nginx 
+
+[root@db54 nginx-1.12.2]# netstat -utnlp | grep :80
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      23909/nginx: master 
+[root@db54 nginx-1.12.2]# 
+
+[root@db54 nginx-1.12.2]# ps -C nginx
+  PID TTY          TIME CMD
+23909 ?        00:00:00 nginx
+23910 ?        00:00:00 nginx
+[root@db54 nginx-1.12.2]#
+
+
+
+  108  yum  -y  install  php-common
+  109  rpm -q  php-common
+  110  rpm -ivh php-fpm-5.4.16-42.el7.x86_64.rpm 
+  111  systemctl  status php-fpm
+  112  systemctl  enable php-fpm
+  113  systemctl  start php-fpm
+  114  netstat -utnlp  | grep  :9000
+
+[root@db54 lnmp]# systemctl  start php-fpm
+[root@db54 lnmp]# netstat -utnlp  | grep  :9000
+tcp        0      0 127.0.0.1:9000          0.0.0.0:*               LISTEN      24312/php-fpm: 
+
+mast 
+[root@db54 lnmp]# 
+
+
+]# vim /usr/local/nginx/conf/nginx.conf
+
+ location ~ \.php$ {
+            root           html;
+            fastcgi_pass   127.0.0.1:9000;
+            fastcgi_index  index.php;
+            fastcgi_param  SCRIPT_FILENAME  $document_root/$fastcgi_script_name;
+            include        fastcgi_params;
+        }
+
+:wq
+
+[root@db54 lnmp]# /usr/local/nginx/sbin/nginx  -s stop
+[root@db54 lnmp]# 
+[root@db54 lnmp]# 
+[root@db54 lnmp]# /usr/local/nginx/sbin/nginx
+
+[root@db54 lnmp]# vim  /usr/local/nginx/html/test.php 
+<?php
+phpinfo();
+?>
+[root@db54 lnmp]#
+
+   13  yum  -y  install autoconf  automake
+   14  rpm -ivh php-devel-5.4.16-42.el7.x86_64.rpm
+    1  tar -zxf php-redis-2.2.4.tar.gz 
+    2  cd phpredis-2.2.4/
+
+]# cd   phpredis-2.2.4
+[root@db54 phpredis-2.2.4]# phpize 
+Configuring for:
+PHP Api Version:         20100412
+Zend Module Api No:      20100525
+Zend Extension Api No:   220100525
+[root@db54 phpredis-2.2.4]# 
+]# ll   /usr/bin/php-config
+
+]# ./configure  --with-php-config=/usr/bin/php-config
+]#  make
+]#  make  install 
+
+[root@db54 phpredis-2.2.4]# make install
+Installing shared extensions:     /usr/lib64/php/modules/
+[root@db54 phpredis-2.2.4]# 
+[root@db54 phpredis-2.2.4]# 
+[root@db54 phpredis-2.2.4]# ls  /usr/lib64/php/modules/
+curl.so  fileinfo.so  json.so  phar.so  redis.so  zip.so
+[root@db54 phpredis-2.2.4]# 
+
+[root@db54 phpredis-2.2.4]#  vim /etc/php.ini
+ 728 extension_dir = "/usr/lib64/php/modules/"
+ 729 ; On windows:
+ 730 extension  = "redis.so"
+:wq
+
+[root@db54 phpredis-2.2.4]# php -m | grep -i redis
+redis
+]# systemctl stop php-fpm
+]# systemctl start php-fpm
+
++++++++++++运行Redis服务
+   45  tar -zxf redis-4.0.8.tar.gz 
+   46  cd redis-4.0.8/
+
+   48  make
+   49  make install
+
+   51  ./utils/install_server.sh 
+[root@db54 redis-4.0.8]# /etc/init.d/redis_6379 status
+Redis is running (32621)
+[root@db54 redis-4.0.8]# 
+
+[root@db54 redis-4.0.8]# redis-cli  
+127.0.0.1:6379> keys *
+(empty list or set)
+127.0.0.1:6379> quit
+[root@db54 redis-4.0.8]#
+
+
+vim /usr/local/nginx/html/lkredis.php
+<?php
+$redis = new redis();
+$redis->connect('127.0.0.1', 6379);
+$redis->set('redistest','666666');
+echo $redis->get('redistest');
+?>
+:wq
+
+
+254]# http://192.168.4.54/lkredis.php
+         
+
+[root@db54 redis-4.0.8]# redis-cli 
+127.0.0.1:6379> keys *
+1) "redistest"
+127.0.0.1:6379> get redistest
+"666666"
+127.0.0.1:6379> 
+
+

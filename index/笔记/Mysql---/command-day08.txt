@@ -1,0 +1,112 @@
+3.2.1  在所有主机上安装perl软件包 （51~56）
+]# cd  mha-soft-student
+]# yum -y  install  perl-*.rpm
+
+3.2.2  在所有主机上安装mha_node软件包 （51~56）
+yum  -y  install   perl-DBD-mysql
+rpm  -ivh  mha4mysql-node-0.56-0.el6.noarch.rpm
+
+3.2.3  只在管理 "主机56" 上安装mha_manager软件包
+]# yum -y  install    perl-ExtUtils-*     perl-CPAN*
+]#tar  -zxvf  mha4mysql-manager-0.56.tar.gz
+]#cd  mha4mysql-manager-0.56
+]#perl  Makefile.PL  
+]#make
+]#make install
+
+3.2.4 检查配置环境
+在主机51 52  53  检查是否有同步数据的用户 repluser   
+mysql> show  grants  for  repluser@"%" ;
+
+在主机51~55 做如下授权
+mysql> grant  all on  *.*  to  root@"%"    identified by "123456";
+
+在主机51~55 做如下设置
+mysql> set global relay_log_purge=off;
+
+3.2.5 拷贝命令（56）
+]# cp  mha4mysql-manager-0.56/bin/*    /usr/local/bin/
+
+3.2.6 创建工作目录 和主配置文件 （56）
+]# mkdir    /etc/mha_manager/
+
+]# cp mha4mysql-manager-0.56/samples/conf/app1.cnf  
+
+/etc/mha_manager/
+
+3.2.7 创建故障切换脚本（56）
+]# ls  /usr/local/bin/master_ip_failover
+
+]# cp mha4mysql-manager-0.56/samples/scripts/master_ip_failover 
+
+ /usr/local/bin/
+
+3.2.8 编辑主配置文件 app1.cnf(56)
+vim  /etc/mha_manager/app1.cnf
+
+2.2.9  验证配置
+验证ssh 免密码登录 数据节点主机
+]# masterha_check_ssh --conf=/etc/mha_manager/app1.cnf
+
+Sun May  6 16:38:19 2018 - [info] All SSH connection tests passed 
+
+successfully.
+
+验证 数据节点的主从同步配置（要不调用故障切换脚本）
+masterha_check_repl --conf=/etc/mha_manager/app1.cnf
+
+MySQL Replication Health is OK.
+
+
+四、测试高可用集群配置
+4.1 在主库上手动部署vip 地址   192.168.4.100
+[root@db51 ~]# ifconfig  eth0:1 192.168.4.100/24
+
+[root@db51 ~]# ifconfig  eth0:1
+eth0:1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 
+
+1500
+        inet 192.168.4.100  netmask 255.255.255.0  broadcast 
+
+192.168.4.255
+        ether 74:52:09:07:51:01  txqueuelen 1000  (Ethernet)
+
+
+4.2 修改故障切换脚本 指定vip地址的部署信息
+]# vim /usr/local/bin/master_ip_failover 
+my $vip = '192.168.4.100/24';  # Virtual IP 
+my $key = "1";
+my $ssh_start_vip = "/sbin/ifconfig eth0:$key $vip";
+my $ssh_stop_vip = "/sbin/ifconfig eth0:$key down";
+：wq
+
+4.3 启动管理服务，并查看服务状态
+]# masterha_manager --conf=/etc/mha/app1.cnf 
+--remove_dead_master_conf   --ignore_last_failover
+
+
+
+[root@host56 ~]# masterha_check_status --conf=/etc/mha_manager/app1.cnf
+app1 (pid:16944) is running(0:PING_OK), master:192.168.4.51
+[root@host56 ~]# 
+
+++++++++++++++++++++++++++++++++++++++++++++++++
+4.4 测试故障转移
+在主库51 上执行  ]# shutdown   -h  now
+
+
+4.5 在管理主机上查看服务状态(如果服务停止了，手动启动一下服务，再查看状态)
+[root@host56 ~]# masterha_check_status --conf=/etc/mha_manager/app1.cnf
+app1 (pid:17507) is running(0:PING_OK), master:192.168.4.52
+
+
+4.6 在52 本机查看是否获取vip地址
+[root@db52 ~]# ip addr  show  | grep  192.168.4
+    inet 192.168.4.52/24 brd 192.168.4.255 scope global eth0
+    inet 192.168.4.100/24 brd 192.168.4.255 scope global secondary eth0:1
+[root@db52 ~]# 
+
+4.6 客户端连接vip地址 ，访问数据服务
+]#mysql   -h192.168.4.100   -uwebadmin   -p123456
+mysql> 
+

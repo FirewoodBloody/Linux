@@ -1,0 +1,214 @@
+2.3 配置mysql主从同步
+2.3.1 配置主库 (192.168.4.51)
+a 做用户授权
+mysql> grant  replication  slave  on  *.*  
+    -> to 
+    -> repluser@"192.168.4.52"
+    -> identified by "123456";
+
+b 启用binlog日志
+vim  /etc/my.cnf
+[mysqld]
+server_id=51
+log-bin=master51
+binlog-format="mixed"
+:wq
+]# systemctl  restart   mysqld
+
+]# ls /var/lib/mysql/master51.*
+/var/lib/mysql/master51.000001  /var/lib/mysql/master51.index
+
+c 查看正在使用binlog日志信息
+]#mysql  -uroot   -p123456
+mysql> show  master  status;
+
+2.3.2  配置从库
+a 验证主库的用户授权
+]# mysql -h192.168.4.51 -urepluser -p123456
+mysql>  show   grants;
+mysql>  quit;
+
+b 指定server_id
+]# vim  /etc/my.cnf
+[mysqld]
+server_id=52
+:wq
+]# systemctl  restart mysqld
+c数据库管理员本机登录，指定主数据库服务器的信息
+]#mysql  -uroot   -p123456
+mysql> change  master  to
+    -> master_host="192.168.4.51",
+    -> master_user="repluser",
+    -> master_password="123456",
+    -> master_log_file="master51.000001",
+    -> master_log_pos=154;
+d 启动slave进程
+mysql> start slave;
+
+e查看进程状态信息
+mysql> show slave status\G;
+            Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+2.4 在客户端测试主从同步配置
+2.4.1  在主库服务器上添加访问数据时，使用连接用户
+]# mysql  -uroot  -p123456
+mysql> grant all  on bbsdb.*  to  webadmin@"%"  identified  by "123456";
+mysql>select user,host from  mysql.user where  user="webadmin";
+mysql> quit;
+
+2.4.2  客户端使用主库的授权用户，连接主库服务器，建库表插入记录
+254]# mysql   -h192.168.4.51  -uwebadmin  -p123456
+mysql> 建库  建表 插入记录
+
+2.4.3  在从库本机，使用管理登录查看是否有和主库一样库表记录及授权用户
+52]# mysql   -uroot  -p123456
+mysql> select  * from  库.表；
+
+2.4.4 客户端使用主库的授权用户,连接从库服务器，也可以看到新建的库表及记录
+254]# mysql   -h192.168.4.52  -uwebadmin  -p123456
+mysql> select  * from  库.表；
+
++++++++++++配置mysql主从从结构
+主库  192.168.4.51
+从库  192.168.4.52 （ 做51主机从库）
+从库  192.168.4.53 （ 做53主机从库）
+要求：客户端访问主库51 时 创建库表记录 在52 和53 数据库服务器都可以看到
+
+配置步骤：
+一、环境准备
+主从同步未配置之前，要保证从库上要有主库上的数据。
+禁用selinux    ]#  setenforce  0 
+关闭防火墙服务]# systemctl  stop firewalld
+物理连接正常 ]#  ping   -c   2   192.168.4.51/52
+数据库正常运行，管理可以从本机登录
+
+二、配置主从同步
+2.1 配置主库51
+2.1.1  用户授权
+]#mysql -uroot  -p123456
+mysql> grant   replication  slave   on  *.*  to  yaya@"%"   identified    by  "123456";
+
+2.1.2 启用binlog日志
+vim /etc/my.cnf
+server_id=51
+log-bin=db51
+binlog-format="mixed"
+:wq
+]#  systemctl  restart   mysqld
+[root@db51 ~]# ls  /var/lib/mysql/db51.*
+/var/lib/mysql/db51.000001    /var/lib/mysql/db51.index
+
+2.1.3 查看正在使用的日志信息
+]#mysql -uroot  -p123456
+mysql> show  master  status;
++-------------+----------+--------------+------------------+-------------------+
+| File        | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+----------+--------------+------------------+-------------------+
+| db51.000001 |      154 |              |                  |                   |
++-------------+----------+--------------+------------------+-------------------+
+1 row in set (0.01 sec)
+
+2.2 配置从库52
+用户授权
+]#mysql  -uroot  -p123456
+mysql>  grant   replication  slave  on  *.*  to   user53@"192.168.4.53"  identified  by "654321";
+
+启用binlog日志，指定server_id  和 允许级联复制
+]# vim  /etc/my.cnf
+[mysqld]
+server_id=52
+log-bin=db52
+binlog-format="mixed"
+log_slave_updates
+:wq
+]# systemctl  restart  mysqld
+
+[root@db52 ~]# ls /var/lib/mysql/db52.*
+/var/lib/mysql/db52.000001   /var/lib/mysql/db52.index
+
+查看正在使用的日志信息
+]#mysql  -uroot  -p123456
+mysql>  show  master  status;
+mysql> show master status;
++-------------+----------+--------------+------------------+-------------------+
+| File        | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+----------+--------------+------------------+-------------------+
+| db52.000001 |      154 |              |                  |                   |		     |	
++-------------+----------+--------------+------------------+-------------------+
+
+
+验证主库的授权用户
+]# mysql   -h192.168.4.51  -uyaya   -p123456
+mysql> quit;
+
+管理员登录指定主库信息
+~]# mysql -uroot  -p123456
+mysql> change  master  to
+    -> master_host="192.168.4.51",
+    -> master_user="yaya",
+    -> master_password="123456",
+    -> master_log_file="db51.000001",
+    -> master_log_pos=154;
+启动slave进程
+mysql> start slave;
+
+查看进程状态信息
+mysql>  show  slave status \G;
+            Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+2.3  配置从库53
+2.3.1验证主库的授权用户
+]#mysql  -h192.168.4.52  -uuser53  -p654321
+mysql> quit；
+2.3.2 指定server_id
+]# vim /etc/my.cnf
+[mysqld]
+server_id=53
+:wq
+]# systemctl  restart  mysqld
+2.3.3 管理员登录指定主库信息
+mysql> change  master  to 
+    -> master_host="192.168.4.52",
+    -> master_user="user53",
+    -> master_password="654321",
+    -> master_log_file="db52.000001",
+    -> master_log_pos=154;
+2.3.4 启动slave进程
+mysql> start  slave;
+2.3.5 查看进程状态信息
+mysql> show slave status\G;
+      Slave_IO_Running: Yes
+      Slave_SQL_Running: Yes
+
+三、客户端验证配置
+3.1 在主库上授权访问gamedb库的用户
+mysql>  grant  all  on  gamedb.*   to   dada@"%"  identified by  "123456";
+
+3.2 客户端使用授权用户连接主库，建库、表、插入记录
+]# mysql  -h192.168.4.51  -udada  -p123456
+create  database  gamedb;
+
+create  table  gamedb.t1(id int);
+insert into  gamedb.t1 values(8888);
+
+create  table  gamedb.t2(id int);
+insert into  gamedb.t2 values(99999);
+
+select  * from gamedb.t1;select  * from gamedb.t2;
+
+
+3.3 客户端使用授权用户连接2台从库时，也可以看到主库上新的库表记录
+]# mysql  -h192.168.4.52  -udada  -p123456
+select  * from gamedb.t1;select  * from gamedb.t2;
+
+]# mysql  -h192.168.4.53  -udada  -p123456
+select  * from gamedb.t1;select  * from gamedb.t2;
+
+
+
+
+
+
+
+
+

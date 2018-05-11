@@ -1,0 +1,237 @@
+mysql-day04
+一、多表查询
+1.1  复制表
+作用？   备份表   和 快速建表
+命令格式？   create   table   库.表   sql查询命令；
+
+例子？
+create  table  db3.user2   select   *  from  db3.usertab;
+
+create  table  db3.user3   select   username,uid,shell  from  db3.usertab  limit   5;
+
+create  database   db4;
+create   table  db4.t1   select   *  from  db3.usertab  where   1 =2;
+
+create   table  db4.t2   select  id,username,uid,homedir  from  db3.usertab  where   1 =2;
+
+1.2 where嵌套查询
+select username,uid  from db3.usertab where uid < (select  avg(uid)  from  db3.usertab）
+
+;
+
+mysql> select  username,uid  from db3.usertab where uid > (select  avg(uid) from  
+
+db3.usertab);
+
+
+select  username from  db3.usertab  
+where username  in 
+(select user from  mysql.user where host="localhost");
+
+
+1.3多表查询
+mysql> create table db4.t3 
+    -> select  username,uid,shell,homedir from db3.usertab 
+    -> limit  3;
+
+mysql> create  table  db4.t4 
+    -> select username,uid,gid  from db3.usertab limit 5;
+
+                         3  * 5 =  15 
+select   *  from t3,t4;  迪卡尔集
+
+mysql> select  t3.username,t4.username from  t3,t4
+    -> where
+    -> t3.username =  t4.username;
+
+mysql> select  t3.*,t4.username from  t3,t4 where t3.username =  t4.username;
+
+
+select   *  from t3,t4 
+where 
+t3.uid = t4.uid ;
+
+select   t3.* , t4.gid  from t3,t4 
+where 
+t3.uid = t4.uid ;
+
+select   t3.username , t4.username  from t3,t4 
+where 
+t3.uid = t4.uid ;
+
+select   t3.username,t4.username  from t3,t4 
+where 
+t3.uid = t4.uid 
+and  t3.username is not null  
+and  t4.username is not null;
+
+1.4  连接查询
+mysql> create  table  db4.t5 
+select username,uid,gid,shell  from db3.usertab 
+where uid>=100  and uid<=500;
+
+mysql> create  table  db4.t6 
+select username,uid,gid,shell  from db3.usertab 
+where uid>=100  and uid<=500  limit  3;
+
+select   *  from     t6     right  join  t5  on  
+t6.uid =  t5.uid;
+
+select   *  from     t6     left  join  t5  on   t6.uid =  t5.uid;
+
+select   t5.username,t6.username   from     t6     right  join  t5  on  
+t6.uid =  t5.uid;
+
+select    t5.username,t6.username  from     t6     left  join  t5  on   t6.uid =  t5.uid;
+
+2.2  在数据库服务器上安装图形管理工具phpmyadmin
+准备软件的运行环境  lamp/lnmp
+]# rpm -q httpd  php  php-mysql
+]# yum  -y   install   httpd     php    php-mysql
+]# systemctl  status httpd
+]#systemctl  restart httpd
+]#systemctl  enable httpd
+
+测试运行环境
+[root@mysql51 mysql]# vim  /var/www/html/test.php 
+<?php
+$x=mysql_connect("localhost","root","123456");
+if($x){   echo "ok";    }else{    echo "no";    };
+?>
+[root@mysql51 mysql]# 
+[root@mysql51 mysql]# yum  -y   install  elinks
+
+]#  elinks   --dump   http://localhost/test.php
+           ok
+
+安装软件phpMyAdmin-2.11.11-all-languages.tar.gz
+
+]#tar -zxf phpMyAdmin-2.11.11-all-languages.tar.gz -C /var/www/html/
+]# cd /var/www/html/
+]#mv phpMyAdmin-2.11.11-all-languages  phpmyadmin
+
+修改软件的配置文件定义管理的数据库服务器
+]#cd  phpmyadmin
+]#cp   config.sample.inc.php   config.inc.php
+]#vim   config.inc.php
+17 $cfg['blowfish_secret'] = 'plj123';
+31 $cfg['Servers'][$i]['host'] = 'localhost';
+:wq
+
+在客户端访问软件 管理数据库服务器
+打开浏览器输入url地址 访问软件
+http://192.168.4.51/phpmyadmin
+                 用户名    root
+                 密   码    123456
+
+三、用户授权与权限撤销
+3.0  管理员密码管理
+恢复数据库管理员本机登录密码
+]#systemctl  stop mysqld
+]# vim /etc/my.cnf
+[mysqld]
+skip-grant-tables
+#validate_password_policy=0
+#validate_password_length=6
+:wq
+]# systemctl  start mysqld
+]#mysql
+
+mysql> select  host,user,authentication_string  from mysql.user;
+mysql> 
+update  mysql.user 
+set  authentication_string=password("abc123")
+where
+host="localhost"  and  user="root";
+
+mysql> flush  privileges;
+mysql>quit
+
+]# vim /etc/my.cnf
+[mysqld]
+#skip-grant-tables
+validate_password_policy=0
+validate_password_length=6
+:wq
+
+]# systemctl  restart mysqld
+]#  mysql   -uroot  -pabc123
+mysql>
+
+
+操作系统管理员 修改数据库管理员root本机登录的密码
+[root@mysql51 ~]# mysqladmin  -hlocalhost  -uroot  -p  password  "654321"
+Enter password:   当前登录密码
+
+
+3.1 什么是用户授权： 在数据库服务器上添加连接用户，添加时可以设置用户的访问权限和连接的密
+
+码。默认只允许数据库管理员root用户在本机登录。默认只有数据库管理员root用户在本机登录才有
+
+授权权限。
+
+
+3.2 用户授权命令的语法格式
+mysql>  grant   权限列表  on  数库名   to  用户名@"客户端地址"    
+identified   by  "密码"   [with  grant  option];
+
+例子1： 允许客户端254主机可以使用root连接，连接密码是123456，连接后的访问权限是多所有库
+
+所有表有完全访问权限 ，且有授权权限。
+192.168.4.51mysql> 
+                    db3.*
+grant  all on *.* to root@"192.168.4.254" 
+    -> identified by "123456"
+    -> with  grant option;
+
+3.3  在客户端使用授权用户连接数据库服务器
+]# ping  -c   2   192.168.4.51
+]# which  mysql
+]#  yum  -y  install  mariadb
+]#  mysql   -h数据库服务器ip地址  -u用户名   -p密码
+
+192.168.4.254]#  mysql  -h192.168.4.51  -uroot  -p123456
+mysql>
+
+grant  select,update(name) on studb.t8 to yaya3@"%" identified by "123456";
+
+grant  select,insert,update on  studb.dogperson to  yaya@"localhost"   identified by 
+
+"123456";
+
+
+grant  all  on studb.* to  admin@"%" identified by "123456";
+
+3.4 数据库服务器使用授权库存储授权信息
+mysql库  
+user      desc  mysql.user; select  * from  mysql.user
+db
+tables_priv
+clomoun_priv
+
+
+
+3.3 撤销用户权限命令的语法格式
+mysql>   revoke  权限列表  on  数库名  from 用户名@"客户端地址" ;
+
+例子1 ： 撤销254主机 使用root用户连接时，授权权限。
+mysql> revoke grant option on *.* from 'root'@'192.168.4.254';
+
+例子2 ： 通过修改表记录的方式撤销用户的访问权限
+mysql> update  mysql.user  
+set   Select_priv="N"
+where  user= 'root'  and host='192.168.4.254';
+
+mysql> flush  privileges;
+
+
+例子3：  撤销254主机 使用root用户连接时 所有权限
+mysql> revoke  all  on *.*   from   'root'@'192.168.4.254';
+
+例子4  删除授权用户 'root'@'192.168.4.254';
+drop  user   'root'@'192.168.4.254';
+
+3.5 工作中如何授权
+管理者 给完全权限且有授权权限
+使用者  只给对存储数据的库有select和insert的权限
+

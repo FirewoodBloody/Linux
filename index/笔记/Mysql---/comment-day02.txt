@@ -1,0 +1,183 @@
+数据类型的关键字   存储范围  赋值方式  合理使用数据类型
+
+*******划重点*****
+数值类型的宽度 是显示宽度，不能够给字段赋值的大小。字段的值由类型决
+
+定。
+
+mysql-day02
+一 、字段约束条件
+1.1  作用： 限制如何给字段赋值的
+1.2  包括内容有：  NULL    Key    Default     Extra 
+NULL  是否允许给字段赋null值  
+           null           默认允许赋null值    
+           not  null   不允许赋null值
+key     键值类型：普通索引   唯一索引  全文索引  主键  外 键
+
+Default 默认值 作用：当不被字段赋值时，使用默认值给字段赋值
+             不设置默认值是  系统定义的是null
+             default   值   
+Extra    额外设置  ，字段是否设置为自动增加,默认没有自动增长功能
+
+
+二、修改表结构
+2.1 修改表结构的命令
+mysql>  alter  table  库.表    执行动作 ；
+
+添加新字段      add   字段名    类型(宽度)  [ 约束条件]
+
+删除已有字段  drop   字段名
+
+修改已有字段的类型宽度及约束条件
+***划重点****  修改时不能与已经存储的数据矛盾的话不允许修改
+                     modify   字段名    类型(宽度)  [ 约束条件]
+
+修改字段名
+                   change   源字段名   新字段名   类型(宽度)  [ 约束条件]
+
+修改表名
+                   alter  table  源表名  rename   [to]   新表名；
+
+三、mysql键值
+设置在表中字段上的，作用是约束如何给字段赋值。同时会给字段做索引。
+
+索引介绍： 树状目录结构  类似与书的“目录”
+优点：加快查询表记录的速度
+缺点 : 会减慢编辑表记录的速度，且占用磁盘的物理存储空间
+          (delete  insert   update)
+
+字典  总页面数  1000页
+
+目录信息  
+1------100页     记录目录信息
+101---1000页   正文
+
+查字典的方法
+笔画
+部首
+拼音
+
+修正内容时，修改内容 添加内容  删除内容          
+
+
+stuinfo   /var/lib/mysql/db2/stuinfo.*
+name   age   home   class
+DBA
+
+
+
+3.1 键值：普通索引   唯一索引  全文索引  主键  外 键
+                    *                                          *        *
+3.1.1普通索引的使用（index）
+使用规则?
+
+查看
+desc  表名;
+show   index  from   表名;
+Table: t2
+Key_name: aaa
+Column_name: age
+Index_type: BTREE  (二叉树)
+
+创建
+在已有表创建
+create   index   索引名  on   表名（字段名）；
+
+
+
+建表是时创建
+create  table  表名（
+字段列表，
+index(字段名)，
+index(字段名)，
+）;
+
+删除
+drop   index   索引名  on   表名；
+
++++++++++++++++++++++++++++++++
+3.1.2主键 primary   key 
+（普通主键    复合主键    主键+auto_increment）
+
+使用规则?
+
+查看   desc   表；  key ----> PRI
+
+创建
+在已有表创建     alter  table   表   add   primary  key(字段名)；
+
+建表时创建
+create  table  表名（
+字段列表，
+primary  key(字段名)
+）；
+
+
+创建复合主键的使用：多个字段一起做主键，插入记录时，只要做主键字段的
+值不同时重复，就可以插入记录。
+desc  mysql.db;
+desc  mysql.user;
+
+主键primary  key  通常和auto_increment连用。
+                                      让字段的值自动增长  i++
+                                         数值类型               i=i+1
+
+
+删除主键   mysql>  alter  table   表   drop    primary  key；
+++++++++++++++++++++++++++++++++++++++
+3.1.3外 键(作用 限制如何给字段赋值的)
+给当前表中字段赋值时，值只能在其他表的指定字段值的范围里选择。
+
+使用规则?
+
+创建外键 foreign  key 的命令格式：
+create   table   表（
+字段名列表，
+foreign  key(字段名)   references  表名（字段名） 
+on  update cascade    on  delete  cascade
+）engine=innodb;
+
+缴费表
+use studb;
+create  table  jfb(
+jfb_id    int(2)  primary key  auto_increment,
+name   char(15),
+pay   float(7,2)
+)engine=innodb;
+
+insert into  jfb (name,pay)values("bob",26800);
+insert into  jfb (name,pay)values("tom",26000);
+
+select  *  from  jfb;
+
+班级表 
+create  table  bjb(
+bjb_id   int(2),
+name   char(15),
+foreign  key(bjb_id)   references  jfb(jfb_id) 
+on  update cascade    on  delete  cascade
+)engine=innodb;
+
+
+insert  into   bjb values(3,"lucy");
+insert  into   bjb values(1,"bob");
+insert  into   bjb values(2,"tom");
+select  * from bjb;
+
+mysql> update  jfb set jfb_id=9 where name="bob";
+mysql> delete from jfb where jfb_id=2;
+select  * from jfb;
+select  * from bjb;
+
+
+查看  mysql> show create table 表名;
+
+删除外键   
+alter  table  表名  drop  foreign key  外键名;
+alter  table  bjb  drop  foreign key  bjb_ibfk_1;
+
+在已有表创建  
+mysql> delete from bjb;
+mysql> alter  table  bjb  add  foreign  key(bjb_id)   references  jfb
+(jfb_id)  on  update cascade    on  delete  cascade;
+

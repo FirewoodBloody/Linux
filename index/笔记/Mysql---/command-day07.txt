@@ -1,0 +1,339 @@
+2.2.2.2 配置数据读写分离服务器56
+装包
+rpm -ivh maxscale-2.1.2-1.rhel.7.x86_64.rpm
+
+[root@host56 ~]# rpm -qa  | grep maxscale
+maxscale-2.1.2-1.x86_64
+
+[root@host56 ~]# rpm -qc  maxscale
+/etc/maxscale.cnf.template
+
+[root@host56 ~]#
+修改配置文件
+[root@host56 ~]# ls /etc/maxscale.cnf
+/etc/maxscale.cnf
+
+[root@host56 ~]# cp /etc/maxscale.cnf   /etc/maxscale.cnf.bak
+
+
+[root@host56 ~]# vim   /etc/maxscale.cnf
+[maxscale]
+threads=1
+[server1]
+type=server
+address=192.168.4.51
+port=3306
+protocol=MySQLBackend
+
+[server2]
+type=server
+address=192.168.4.52
+port=3306
+protocol=MySQLBackend
+
+[MySQL Monitor]
+type=monitor
+module=mysqlmon
+servers=server1,  server2
+user=scalemon
+passwd=123456
+monitor_interval=10000
+
+[Read-Write Service]
+type=service
+router=readwritesplit
+servers=server1, server2
+user=maxscale
+passwd=123456
+max_slave_connections=100%
+
+[MaxAdmin Service]
+type=service
+router=cli
+
+[Read-Write Listener]
+type=listener
+service=Read-Write Service
+protocol=MySQLClient
+port=4006
+
+[MaxAdmin Listener]
+type=listener
+service=MaxAdmin Service
+protocol=maxscaled
+socket=default
+port=4018
+[root@host56 ~]# 
+
+根据配置文件做相应的设置(在2台数据库服务器上添加用户)
+监控数据库服务器时，连接数据库服务器的用户
+mysql> 
+grant  replication  slave, replication client   on *.* 
+to scalemon@'%'    identified by   "123456"；
+
+验证 访问数据时，连接数据库服务器使用的用户，是否在数据库服务器上存在的，连接用户
+mysql> 
+grant select   on  mysql.* 
+to maxscale@'%'  identified by "123456";
+
+查看授权用户
+mysql> select user,host from mysql.user where user in ("scalemon","maxscale");
++----------+------+
+| user     | host |
++----------+------+
+| maxscale | %    |
+| scalemon | %    |
++----------+------+
+
+启动服务
+[root@host56 ~]# maxscale  -f  /etc/maxscale.cnf
+
+
+查看服务进程和端口
+
+查看端口
+[root@host56 ~]# netstat -utnlp  | grep :4006
+tcp6       0      0 :::4006                 :::*                    LISTEN      29688/maxscale      
+
+[root@host56 ~]# 
+
+[root@host56 ~]# netstat -utnlp  | grep :4018
+tcp6       0      0 :::4018                 :::*                    LISTEN      29688/maxscale      
+[root@host56 ~]# 
+
+查看进程
+[root@host56 ~]# ps -C maxscale
+  PID TTY          TIME CMD
+29688 ?        00:00:00 maxscale
+[root@host56 ~]# 
+
+
+停止服务
+[root@host56 ~]# ps -C maxscale
+  PID TTY          TIME CMD
+29688 ?        00:00:00 maxscale
+[root@host56 ~]# kill  -9  29688
+[root@host56 ~]# 
+[root@host56 ~]# 
+[root@host56 ~]# kill  -9  29688
+-bash: kill: (29688) - 进程不存在
+
+2.2.3 测试配置
+A 在本机访问管理管端口查看监控状态
+
+[root@host56 ~]# maxadmin  -P4018  -uadmin  -pmariadb
+MaxScale> list servers
+Servers.
+-------------------+-----------------+-------+-------------+--------------------
+Server             | Address         | Port  | Connections | Status              
+-------------------+-----------------+-------+-------------+--------------------
+server1            | 192.168.4.51    |  3306 |           0 | Master, Running
+server2            | 192.168.4.52    |  3306 |           0 | Slave, Running
+-------------------+-----------------+-------+-------------+--------------------
+MaxScale> exit
+[root@host56 ~]# 
+
+b 客户端访问数据读写分离服务器
+]#which  mysql
+]# mysql -h192.168.4.56 -P4006 -uwebuser -p123456
+mysql>  select  @@hostname；
+mysql>  执行插入或查询 （ 在51 和 52 本机查看记录）
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2.2 配置mysql多实例
+要求：在主机192.168.4.56配置mysql多实例：
+运行2个数据库服务  
+
+第1个数据库服务  数据库目录  /dataone
+                          服务端口号   3307
+                          sock文件    /dataone/mysqld.sock
+                          日志文件    /dataone/mysqld.log
+
+第2个数据库服务
+                          数据库目录 /datatow
+                          服务端口号 3308
+                          sock文件  /datatwo/mysqld.sock
+                          日志文件   /datatwo/mysqld.log
+1 环境准备
+netstat  -utnalp   | grep  :3307
+netstat  -utnalp   | grep  :3308
+
+2 安装提供多实例服务的, mysql数据库服务软件
+[root@host56 ~]# mv  mysql-5.7.20-linux-glibc2.12-x86_64 /usr/local/mysql
+[root@host56 ~]# 
+[root@host56 ~]# ls /usr/local/mysql/
+bin  COPYING  docs  include  lib  man  README  share  support-files
+[root@host56 ~]# ls /usr/local/mysql/bin/
+innochecksum       mysqladmin                  mysqld_multi      mysqlpump                  mysqlxtest
+lz4_decompress     mysqlbinlog                 mysqld_safe       mysql_secure_installation  perror
+myisamchk          mysqlcheck                  mysqldump         mysqlshow                  replace
+myisam_ftdump      mysql_client_test_embedded  mysqldumpslow     mysqlslap                  resolveip
+myisamlog          mysql_config                mysql_embedded    mysql_ssl_rsa_setup        
+
+resolve_stack_dump
+myisampack         mysql_config_editor         mysqlimport       mysqltest_embedded         
+
+zlib_decompress
+my_print_defaults  mysqld                      mysql_install_db  mysql_tzinfo_to_sql
+mysql              mysqld-debug                mysql_plugin      mysql_upgrade
+[root@host56 ~]# 
+[root@host56 ~]# echo  "export  PATH=/usr/local/mysql/bin:$PATH" >> /etc/profile
+[root@host56 ~]# source /etc/profile
+[root@host56 ~]# echo $PATH
+/usr/local/mysql/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+
+
+3 编辑配置文件  
+]# rm  -rf  /etc/my.cnf
+]#vim  /etc/my.cnf
+[mysqld_multi]  
+mysqld = /usr/local/mysql/bin/mysqld_safe   
+mysqladmin = /usr/local/mysql/bin/mysqladmin  user = root 
+[mysqld1] 
+
+port=3307
+datadir=/dataone
+
+socket=/dataone/mysqld.sock
+log-error=/dataone/mysqld.log
+
+pid-file=/dataone/mysqld.pid
+
+[mysqld2] 
+
+port=3308
+datadir=/datatwo
+
+socket=/datatwo/mysqld.sock
+log-error=/datatwo/mysqld.log
+
+pid-file=/datatwo/mysqld.pid
+:wq
+4 根据配置文件的设置，做相应的配置
+4.1创建数据库目录
+4.2创建进程运行的所有者和组 mysql
+[root@host56 ~]# mkdir -p /dataone
+[root@host56 ~]# mkdir -p /datatwo
+[root@host56 ~]# useradd  mysql
+c[root@host56 ~]# chown  mysql:mysql  /data*
+
+4.3 初始化授权库
+]#mysqld  --user=mysql  --basedir=/usr/local/mysql   --datadir=/dataone   --initialize 
+
+
+2018-05-05T08:47:48.992696Z 1 [Note] A temporary password is generated for root@localhost: 
+
+bXk.5j!pjto#
+
+[root@host56 ~]# ls  /dataone/ 
+auto.cnf  ib_buffer_pool  ibdata1  ib_logfile0  ib_logfile1  mysql  performance_schema  sys
+
+
+]#mysqld  --user=mysql  --basedir=/usr/local/mysql  --datadir=/datatwo  --initialize 
+
+2018-05-05T08:50:09.429934Z 1 [Note] A temporary password is generated for root@localhost: 
+
+bKsaf+xzk0V3
+
+[root@host56 ~]# ls /datatwo/ 
+auto.cnf  ib_buffer_pool  ibdata1  ib_logfile0  ib_logfile1  mysql  performance_schema  sys
+[root@host56 ~]# 
+
+5 启动多实例服务
+[root@host56 ~]# mysqld_multi   start   1
+[root@host56 ~]# mysqld_multi   start   2
+
+[root@host56 ~]# netstat -utnlp  | grep :3308
+tcp6       0      0 :::3308                 :::*                    LISTEN      1156/mysqld     
+    
+[root@host56 ~]# netstat -utnlp  | grep :3307
+tcp6       0      0 :::3307                 :::*                    LISTEN      927/mysqld          
+[root@host56 ~]# 
+
+6 访问多实例服务
+连接实例服务1
+[root@host56 ~]#mysql -uroot   -p'bXk.5j!pjto#'  -S    /dataone/mysqld.sock
+
+mysql> ALTER USER user() identified   by   "123456";
+mysql> quit;
+
+]# mysql  -uroot  -p123456   -S  /dataone/mysqld.sock
+mysql> show databases;
++--------------------+
+| Database                    |
++--------------------+
+| information_schema |
+| mysql                          |
+| performance_schema |
+| sys                |
++--------------------+
+4 rows in set (0.00 sec)
+
+mysql> 
+
+
+连接实例服务2
+[root@host56 ~]#mysql -uroot   -p'bKsaf+xzk0V3'  -S    /datatwo/mysqld.sock
+mysql> alter user  user() identified by "123456";
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| sys                |
++--------------------+
+4 rows in set (0.00 sec)
+
+mysql> quit
+Bye
+[root@host56 ~]# mysql  -uroot -p123456   -S  /datatwo/mysqld.sock
+
+
+
+停止启动的实例服务
+]# mysqld_multi  --user=root  --password=密码  stop  实例编号
+
+[root@host56 ~]# netstat -utnlp | grep :3307
+tcp6       0      0 :::3307                 :::*                    LISTEN      927/mysqld          
+[root@host56 ~]# 
+[root@host56 ~]# 
+[root@host56 ~]# netstat -utnlp | grep :3308
+tcp6       0      0 :::3308                 :::*                    LISTEN      1156/mysqld         
+[root@host56 ~]# 
+[root@host56 ~]# mysqld_multi  --user=root  --password=123456 stop 1
+[root@host56 ~]# 
+[root@host56 ~]# netstat -utnlp | grep :3307
+[root@host56 ~]# 
+[root@host56 ~]# netstat -utnlp | grep :3308
+tcp6       0      0 :::3308                 :::*                    LISTEN      1156/mysqld         
+[root@host56 ~]# 
+[root@host56 ~]# 
+[root@host56 ~]# 
+[root@host56 ~]# mysqld_multi  --user=root  --password=123456 stop 2
+[root@host56 ~]# netstat -utnlp | grep :3308
+[root@host56 ~]# mysql -uroot   -p123456   -S    /datatwo/mysqld.sock
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/datatwo/mysqld.sock' (2)
+[root@host56 ~]# 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

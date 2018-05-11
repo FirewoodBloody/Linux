@@ -1,0 +1,723 @@
+拓扑结构
+
+            master51
+	        |
+		|
+______________________________________________________
+  |		|         |         |		|
+ slave52    slave53   slave54     slave55      mgm56
+  备用主     备用主                            Manager
+
+
+一、配置所有数据节点主机之间可以互相以ssh密钥对方式认证登陆
+1.1 在每一台数据库服务器创建密钥对，然后把公钥拷贝给其他4台数据库服务器
+51主机：
+[root@db108 ~]# ssh-keygen  创建密钥对
+Generating public/private rsa key pair.
+Enter file in which to save the key (/root/.ssh/id_rsa): 
+Enter passphrase (empty for no passphrase): 
+Enter same passphrase again: 
+Your identification has been saved in /root/.ssh/id_rsa.
+Your public key has been saved in /root/.ssh/id_rsa.pub.
+The key fingerprint is:
+SHA256:pb0sJunRZ/2CoUkfd8oYm2u6WjAUWePVr4VjPTTUp7o root@db108
+The key's randomart image is:
++---[RSA 2048]----+
+|      .oo .. ... |
+|      .o o  . o o|
+|      . . .  = o.|
+|     .   +  + *  |
+|      o S .. = . |
+|       =..+o+ .  |
+|      +.=+=@.+   |
+|     . =o+B E.   |
+|      o.o+.. ..  |
++----[SHA256]-----+
+[root@db108 ~]#
+
+[root@db108 ~]# ssh-copy-id  root@192.168.4.52  //同样拷贝公钥给其他4台数据库服务器
+/usr/bin/ssh-copy-id: INFO: Source of key(s) to be installed: "/root/.ssh/id_rsa.pub"
+The authenticity of host '192.168.36.107 (192.168.36.107)' can't be established.
+ECDSA key fingerprint is SHA256:hFHvPGRC70RSaXhsXSOCMWqB7y13GxmCR5mznQTG6u8.
+ECDSA key fingerprint is MD5:ca:73:1b:97:ea:e5:10:4f:b1:37:a4:c8:5f:6b:3b:da.
+Are you sure you want to continue connecting (yes/no)? yes
+/usr/bin/ssh-copy-id: INFO: attempting to log in with the new key(s), to filter out any that are already installed
+/usr/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- if you are prompted now it is to install the new keys
+root@192.168.36.107's password: 
+
+Number of key(s) added: 1
+
+Now try logging into the machine, with:   "ssh 'root@192.168.4.52'"
+and check to make sure that only the key(s) you wanted were added.
+
+[root@db108 ~]#
+
+
+
+1.2 配置manager56主机 无密码ssh登录 所有数据节点主机
+[root@db108 ~]# ssh-keygen  //创建密钥对
+Generating public/private rsa key pair.
+Enter file in which to save the key (/root/.ssh/id_rsa): 
+Enter passphrase (empty for no passphrase): 
+Enter same passphrase again: 
+Your identification has been saved in /root/.ssh/id_rsa.
+Your public key has been saved in /root/.ssh/id_rsa.pub.
+The key fingerprint is:
+SHA256:pb0sJunRZ/2CoUkfd8oYm2u6WjAUWePVr4VjPTTUp7o root@db108
+The key's randomart image is:
++---[RSA 2048]----+
+|      .oo .. ... |
+|      .o o  . o o|
+|      . . .  = o.|
+|     .   +  + *  |
+|      o S .. = . |
+|       =..+o+ .  |
+|      +.=+=@.+   |
+|     . =o+B E.   |
+|      o.o+.. ..  |
++----[SHA256]-----+
+[root@db108 ~]#
+
+[root@db108 ~]# ssh-copy-id  root@192.168.4.51  //同样拷贝公钥给其他4台数据库服务器
+/usr/bin/ssh-copy-id: INFO: Source of key(s) to be installed: "/root/.ssh/id_rsa.pub"
+The authenticity of host '192.168.36.107 (192.168.36.107)' can't be established.
+ECDSA key fingerprint is SHA256:hFHvPGRC70RSaXhsXSOCMWqB7y13GxmCR5mznQTG6u8.
+ECDSA key fingerprint is MD5:ca:73:1b:97:ea:e5:10:4f:b1:37:a4:c8:5f:6b:3b:da.
+Are you sure you want to continue connecting (yes/no)? yes
+/usr/bin/ssh-copy-id: INFO: attempting to log in with the new key(s), to filter out any that are already installed
+/usr/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- if you are prompted now it is to install the new keys
+root@192.168.36.107's password: 
+
+Number of key(s) added: 1
+
+Now try logging into the machine, with:   "ssh 'root@192.168.4.52'"
+and check to make sure that only the key(s) you wanted were added.
+
+[root@db108 ~]#
+
+
+二、安装软件包
+2.1 在所有主机上安装perl软件包
+[root@db108 share]# ls perl-*.rpm
+perl-Config-Tiny-2.14-7.el7.noarch.rpm          
+perl-Mail-Sender-0.8.23-1.el7.noarch.rpm       
+perl-MIME-Types-1.38-2.el7.noarch.rpm
+perl-Email-Date-Format-1.002-15.el7.noarch.rpm  
+perl-Mail-Sendmail-0.79-21.el7.art.noarch.rpm  
+perl-Parallel-ForkManager-1.18-2.el7.noarch.rpm
+perl-Log-Dispatch-2.41-1.el7.1.noarch.rpm       
+perl-MIME-Lite-3.030-1.el7.noarch.rpm
+
+[root@db108 share]# yum -y  install perl-*.rpm
+
+2.2 在所有数据节点主机上安装mha_node软件包
+[root@db108 share]# yum -y  install perl-DBD-mysql perl-DBI
+[root@db108 share]# rpm -ivh  mha4mysql-node-0.56-0.el6.noarch.rpm 
+
+
+2.3 在管理主机上安装mha_node包和mha_manager包
+[root@db108 share]# yum -y  install perl-DBD-mysql perl-DBI
+[root@db108 share]# rpm -ivh  mha4mysql-node-0.56-0.el6.noarch.rpm
+
+]# yum -y  install perl-ExtUtils-*   perl-CPAN-*
+]#tar -zxf mha4mysql-manager-0.56.tar.gz 
+]#cd mha4mysql-manager-0.56
+[root@host114 mha4mysql-manager-0.56]# perl Makefile.PL 
+*** Module::AutoInstall version 1.03
+*** Checking for Perl dependencies...
+[Core Features]
+- DBI                   ...loaded. (1.627)
+- DBD::mysql            ...loaded. (4.023)
+- Time::HiRes           ...loaded. (1.9725)
+- Config::Tiny          ...loaded. (2.14)
+- Log::Dispatch         ...loaded. (2.41)
+- Parallel::ForkManager ...loaded. (1.18)
+- MHA::NodeConst        ...loaded. (0.56)
+*** Module::AutoInstall configuration finished.
+Checking if your kit is complete...
+Looks good
+Writing Makefile for mha4mysql::manager
+Writing MYMETA.yml and MYMETA.json
+
+[root@host114 mha4mysql-manager-0.56]# make
+[root@host114 mha4mysql-manager-0.56]# make  install
+
+三、配置主从同步,要求如下：
+51 主库		    开半同步复制
+52 从库（备用主库）  开半同步复制
+53 从库（备用主库）  开半同步复制
+54 从库 不做备用主库所以不用开半同步复制 
+55 从库 不做备用主库所以不用开半同步复制
+56 管理主机
+
+
+3.1、master51配置：
+vim  /etc/my.cnf
+[mysqld]
+plugin-load = "rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+rpl-semi-sync-master-enabled = 1
+rpl-semi-sync-slave-enabled = 1
+
+server_id=51
+log-bin=master51
+binlog-format="mixed"
+:wq
+
+[root@db107 ~]# systemctl  restart mysqld
+
+[root@db107 ~]# ls /var/lib/mysql/master51.*
+/var/lib/mysql/master51.000001  /var/lib/mysql/master51.index
+
+[root@db107 ~]# mysql -uroot -p123456
+mysql> grant  replication slave  on  *.*  to repluser@"%"  identified by "123456";
+Query OK, 0 rows affected, 1 warning (10.04 sec)
+
+mysql> set global relay_log_purge=off;
+Query OK, 0 rows affected (0.15 sec)
+
+mysql> show master status;
++-----------------+----------+--------------+------------------+-------------------+
+| File            | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-----------------+----------+--------------+------------------+-------------------+
+| master51.000001 |      441 |              |                  |                   |
++-----------------+----------+--------------+------------------+-------------------+
+mysql> quit;
+
+
+3.2、备用master52的配置
+vim /etc/my.cnf
+[mysqld]
+plugin-load = "rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+rpl-semi-sync-master-enabled = 1
+rpl-semi-sync-slave-enabled = 1
+
+server_id=52
+log-bin=master52
+binlog-format="mixed"
+
+]# systemctl restart mysqld
+[root@db108 ~]# ls /var/lib/mysql/master52.*
+/var/lib/mysql/master52.000001  /var/lib/mysql/master52.index
+
+[root@db108 ~]# mysql  -uroot  -p123456
+
+mysql> set global relay_log_purge=off; 
+Query OK, 0 rows affected (0.13 sec)
+
+mysql> change master to 
+    -> master_host="192.168.36.107",
+    -> master_user="repluser",
+    -> master_password="123456",
+    -> master_log_file="master51.000001",
+    -> master_log_pos=441;
+Query OK, 0 rows affected, 2 warnings (0.04 sec)
+
+mysql> start slave;
+Query OK, 0 rows affected (0.01 sec)
+
+
+[root@db108 ~]# mysql -uroot -p123456 -e "show slave status\G"  | grep -i YES
+mysql: [Warning] Using a password on the command line interface can be insecure.
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+[root@db108 ~]# 
+
+
+3.3、备用master53的配置
+]#  vim /etc/my.cnf
+[mysqld]
+plugin-load = "rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+rpl-semi-sync-master-enabled = 1
+rpl-semi-sync-slave-enabled = 1
+
+server_id=53
+log-bin=master53
+binlog-format="mixed"
+:wq
+
+[root@db109 ~]# systemctl  restart mysqld
+[root@db109 ~]# ls /var/lib/mysql/master53.*
+/var/lib/mysql/master53.000001  /var/lib/mysql/master53.index
+[root@db109 ~]# 
+
+[root@db109 ~]# mysql -uroot -p123456
+mysql> set global relay_log_purge=off;
+Query OK, 0 rows affected (0.14 sec)
+
+mysql> change master  to master_host="192.168.36.107",master_user="repluser",master_password="123456",master_log_file="master51.000001",master_log_pos=441;
+Query OK, 0 rows affected, 2 warnings (0.05 sec)
+
+mysql> start slave;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> 
+
+[root@db109 ~]# mysql -uroot -p123456 -e "show slave status\G" | grep -i yes
+mysql: [Warning] Using a password on the command line interface can be insecure.
+             Slave_IO_Running: Yes
+             Slave_SQL_Running: Yes
+[root@db109 ~]# 
+
+
+3.4、配置从服务器54
+[root@db111 ~]# vim /etc/my.cnf
+[mysqld]
+server_id=54
+:wq
+
+[root@db111 ~]# systemctl  restart mysqld
+[root@db111 ~]# mysql -uroot -p123456
+mysql> change master  to master_host="192.168.36.107",master_user="repluser",master_password="123456",master_log_file="master51.000001",master_log_pos=441;
+Query OK, 0 rows affected, 2 warnings (0.09 sec)
+
+mysql> start slave;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> quit;
+Bye
+[root@db111 ~]# 
+[root@db111 ~]# mysql -uroot -p123456 -e "show slave status\G" | grep -i yes
+mysql: [Warning] Using a password on the command line interface can be insecure.
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+[root@db111 ~]# 
+
+
+3.5、配置从服务器55
+[root@db111 ~]# vim /etc/my.cnf
+[mysqld]
+server_id=55
+:wq
+
+[root@db111 ~]# systemctl  restart mysqld
+[root@db111 ~]# mysql -uroot -p123456
+mysql> change master  to master_host="192.168.36.107",master_user="repluser",master_password="123456",master_log_file="master51.000001",master_log_pos=441;
+Query OK, 0 rows affected, 2 warnings (0.09 sec)
+
+mysql> start slave;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> quit;
+Bye
+[root@db111 ~]# 
+[root@db111 ~]# mysql -uroot -p123456 -e "show slave status\G" | grep -i yes
+mysql: [Warning] Using a password on the command line interface can be insecure.
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+[root@db111 ~]# 
+
+
+3.6、在客户端测试主从同步配置
+3.6.1  在主库51上添加访问数据的授权用户
+[root@db107 ~]# mysql -uroot -p123456
+mysql> grant all on  gamedb.* to admin@"%" identified by "123456";
+
+3.6.2  在客户端主机连接主库51 建库表记录
+mysql> create database gamedb;
+Query OK, 1 row affected (0.01 sec)
+
+mysql> create table  gamedb.t1 (id int);
+Query OK, 0 rows affected (0.04 sec)
+
+mysql> insert into gamedb.t1 values(999);
+Query OK, 1 row affected (0.15 sec)
+
+mysql> insert into gamedb.t1 values(999);
+Query OK, 1 row affected (0.05 sec)
+
+mysql> select  * from gamedb.t1;
++------+
+| id   |
++------+
+|  999 |
+|  999 |
++------+
+2 rows in set (0.00 sec)
+
+mysql> 
+
+3.6.3  在客户端使用授权用户连接从库52-55,也能看到同样的库表及记录
+
+[root@host114 ~]# mysql -h从库IP地址 -uadmin -p123456
+mysql> select  * from gamedb.t1;
++------+
+| id   |
++------+
+|  999 |
+|  999 |
++------+
+
+四、编辑管理主机主配置文件
+]# cp  mha4mysql-manager-0.56/bin/* /usr/local/bin/
+]#mkdir /etc/mha_manager/
+[root@host114 mha4mysql-manager-0.56]# cp samples/conf/app1.cnf  /etc/mha_manager/
+]#vim /etc/mha_manager/app1.cnf
+
+[server default]
+manager_workdir=/etc/mha_manager
+manager_log=/etc/mha_manager/manager.log
+master_ip_failover_script=/usr/local/bin/master_ip_failover
+
+ssh_user=root
+ssh_port=22
+
+repl_user=repluser
+repl_password=123456
+
+user=root
+password=123456
+
+[server1]
+hostname=192.168.36.107
+port=3306
+
+[server2]
+hostname=192.168.36.108
+port=3306
+candidate_master=1
+
+[server3]
+hostname=192.168.36.109
+port=3306
+candidate_master=1
+
+[server4]
+hostname=192.168.36.111
+port=3306
+no_master=1
+
+[server5]
+hostname=192.168.36.113
+port=3306
+no_master=1
+:wq
+
+
+
+
+[root@host114 ~]# masterha_check_ssh  --conf /etc/mha_manager/app1.cnf 
+Thu May  3 06:36:36 2018 - [warning] Global configuration file /etc/masterha_default.cnf not found. Skipping.
+Thu May  3 06:36:36 2018 - [info] Reading application default configuration from /etc/mha_manager/app1.cnf..
+Thu May  3 06:36:36 2018 - [info] Reading server configuration from /etc/mha_manager/app1.cnf..
+Thu May  3 06:36:36 2018 - [info] Starting SSH connection tests..
+Thu May  3 06:36:45 2018 - [debug] 
+Thu May  3 06:36:38 2018 - [debug]  Connecting via SSH from root@192.168.36.113(192.168.36.113:22) to root@192.168.36.107(192.168.36.107:22)..
+Thu May  3 06:36:39 2018 - [debug]   ok.
+Thu May  3 06:36:39 2018 - [debug]  Connecting via SSH from root@192.168.36.113(192.168.36.113:22) to root@192.168.36.108(192.168.36.108:22)..
+Thu May  3 06:36:41 2018 - [debug]   ok.
+Thu May  3 06:36:41 2018 - [debug]  Connecting via SSH from root@192.168.36.113(192.168.36.113:22) to root@192.168.36.109(192.168.36.109:22)..
+Thu May  3 06:36:43 2018 - [debug]   ok.
+Thu May  3 06:36:43 2018 - [debug]  Connecting via SSH from root@192.168.36.113(192.168.36.113:22) to root@192.168.36.111(192.168.36.111:22)..
+Thu May  3 06:36:44 2018 - [debug]   ok.
+Thu May  3 06:36:46 2018 - [debug] 
+Thu May  3 06:36:37 2018 - [debug]  Connecting via SSH from root@192.168.36.111(192.168.36.111:22) to root@192.168.36.107(192.168.36.107:22)..
+Thu May  3 06:36:39 2018 - [debug]   ok.
+Thu May  3 06:36:39 2018 - [debug]  Connecting via SSH from root@192.168.36.111(192.168.36.111:22) to root@192.168.36.108(192.168.36.108:22)..
+Thu May  3 06:36:40 2018 - [debug]   ok.
+Thu May  3 06:36:40 2018 - [debug]  Connecting via SSH from root@192.168.36.111(192.168.36.111:22) to root@192.168.36.109(192.168.36.109:22)..
+Thu May  3 06:36:43 2018 - [debug]   ok.
+Thu May  3 06:36:43 2018 - [debug]  Connecting via SSH from root@192.168.36.111(192.168.36.111:22) to root@192.168.36.113(192.168.36.113:22)..
+Thu May  3 06:36:45 2018 - [debug]   ok.
+Thu May  3 06:36:46 2018 - [debug] 
+Thu May  3 06:36:37 2018 - [debug]  Connecting via SSH from root@192.168.36.109(192.168.36.109:22) to root@192.168.36.107(192.168.36.107:22)..
+Thu May  3 06:36:39 2018 - [debug]   ok.
+Thu May  3 06:36:39 2018 - [debug]  Connecting via SSH from root@192.168.36.109(192.168.36.109:22) to root@192.168.36.108(192.168.36.108:22)..
+Thu May  3 06:36:41 2018 - [debug]   ok.
+Thu May  3 06:36:41 2018 - [debug]  Connecting via SSH from root@192.168.36.109(192.168.36.109:22) to root@192.168.36.111(192.168.36.111:22)..
+Thu May  3 06:36:44 2018 - [debug]   ok.
+Thu May  3 06:36:44 2018 - [debug]  Connecting via SSH from root@192.168.36.109(192.168.36.109:22) to root@192.168.36.113(192.168.36.113:22)..
+Thu May  3 06:36:46 2018 - [debug]   ok.
+Thu May  3 06:36:46 2018 - [debug] 
+Thu May  3 06:36:36 2018 - [debug]  Connecting via SSH from root@192.168.36.108(192.168.36.108:22) to root@192.168.36.107(192.168.36.107:22)..
+Thu May  3 06:36:39 2018 - [debug]   ok.
+Thu May  3 06:36:39 2018 - [debug]  Connecting via SSH from root@192.168.36.108(192.168.36.108:22) to root@192.168.36.109(192.168.36.109:22)..
+Thu May  3 06:36:42 2018 - [debug]   ok.
+Thu May  3 06:36:42 2018 - [debug]  Connecting via SSH from root@192.168.36.108(192.168.36.108:22) to root@192.168.36.111(192.168.36.111:22)..
+Thu May  3 06:36:43 2018 - [debug]   ok.
+Thu May  3 06:36:43 2018 - [debug]  Connecting via SSH from root@192.168.36.108(192.168.36.108:22) to root@192.168.36.113(192.168.36.113:22)..
+Thu May  3 06:36:46 2018 - [debug]   ok.
+Thu May  3 06:36:46 2018 - [debug] 
+Thu May  3 06:36:36 2018 - [debug]  Connecting via SSH from root@192.168.36.107(192.168.36.107:22) to root@192.168.36.108(192.168.36.108:22)..
+Thu May  3 06:36:38 2018 - [debug]   ok.
+Thu May  3 06:36:38 2018 - [debug]  Connecting via SSH from root@192.168.36.107(192.168.36.107:22) to root@192.168.36.109(192.168.36.109:22)..
+Thu May  3 06:36:42 2018 - [debug]   ok.
+Thu May  3 06:36:42 2018 - [debug]  Connecting via SSH from root@192.168.36.107(192.168.36.107:22) to root@192.168.36.111(192.168.36.111:22)..
+Thu May  3 06:36:43 2018 - [debug]   ok.
+Thu May  3 06:36:43 2018 - [debug]  Connecting via SSH from root@192.168.36.107(192.168.36.107:22) to root@192.168.36.113(192.168.36.113:22)..
+Thu May  3 06:36:46 2018 - [debug]   ok.
+Thu May  3 06:36:46 2018 - [info] All SSH connection tests passed successfully.
+[root@host114 ~]# 
+
+
+
+**检查主从同步时把app1.cnf文件中的此配置项#master_ip_failover_script=/usr/local/bin/master_ip_failover注释掉，不然检查失败。
+
+[root@host114 mhasoft]# masterha_check_repl  --conf /etc/mha_manager/app1.cnf 
+Thu May  3 07:02:46 2018 - [warning] Global configuration file /etc/masterha_default.cnf not found. Skipping.
+Thu May  3 07:02:46 2018 - [info] Reading application default configuration from /etc/mha_manager/app1.cnf..
+Thu May  3 07:02:46 2018 - [info] Reading server configuration from /etc/mha_manager/app1.cnf..
+Thu May  3 07:02:46 2018 - [info] MHA::MasterMonitor version 0.56.
+Thu May  3 07:02:47 2018 - [info] GTID failover mode = 0
+Thu May  3 07:02:47 2018 - [info] Dead Servers:
+Thu May  3 07:02:47 2018 - [info] Alive Servers:
+Thu May  3 07:02:47 2018 - [info]   192.168.36.107(192.168.36.107:3306)
+Thu May  3 07:02:47 2018 - [info]   192.168.36.108(192.168.36.108:3306)
+Thu May  3 07:02:47 2018 - [info]   192.168.36.109(192.168.36.109:3306)
+Thu May  3 07:02:47 2018 - [info]   192.168.36.111(192.168.36.111:3306)
+Thu May  3 07:02:47 2018 - [info]   192.168.36.113(192.168.36.113:3306)
+Thu May  3 07:02:47 2018 - [info] Alive Slaves:
+Thu May  3 07:02:47 2018 - [info]   192.168.36.108(192.168.36.108:3306)  Version=5.7.17-log (oldest major version between slaves) log-bin:enabled
+Thu May  3 07:02:47 2018 - [info]     Replicating from 192.168.36.107(192.168.36.107:3306)
+Thu May  3 07:02:47 2018 - [info]     Primary candidate for the new Master (candidate_master is set)
+Thu May  3 07:02:47 2018 - [info]   192.168.36.109(192.168.36.109:3306)  Version=5.7.17-log (oldest major version between slaves) log-bin:enabled
+Thu May  3 07:02:47 2018 - [info]     Replicating from 192.168.36.107(192.168.36.107:3306)
+Thu May  3 07:02:47 2018 - [info]     Primary candidate for the new Master (candidate_master is set)
+Thu May  3 07:02:47 2018 - [info]   192.168.36.111(192.168.36.111:3306)  Version=5.7.17 (oldest major version between slaves) log-bin:disabled
+Thu May  3 07:02:47 2018 - [info]     Replicating from 192.168.36.107(192.168.36.107:3306)
+Thu May  3 07:02:47 2018 - [info]     Not candidate for the new Master (no_master is set)
+Thu May  3 07:02:47 2018 - [info]   192.168.36.113(192.168.36.113:3306)  Version=5.7.17 (oldest major version between slaves) log-bin:disabled
+Thu May  3 07:02:47 2018 - [info]     Replicating from 192.168.36.107(192.168.36.107:3306)
+Thu May  3 07:02:47 2018 - [info]     Not candidate for the new Master (no_master is set)
+Thu May  3 07:02:47 2018 - [info] Current Alive Master: 192.168.36.107(192.168.36.107:3306)
+Thu May  3 07:02:47 2018 - [info] Checking slave configurations..
+Thu May  3 07:02:47 2018 - [info]  read_only=1 is not set on slave 192.168.36.108(192.168.36.108:3306).
+Thu May  3 07:02:47 2018 - [info]  read_only=1 is not set on slave 192.168.36.109(192.168.36.109:3306).
+Thu May  3 07:02:47 2018 - [info]  read_only=1 is not set on slave 192.168.36.111(192.168.36.111:3306).
+Thu May  3 07:02:47 2018 - [warning]  relay_log_purge=0 is not set on slave 192.168.36.111(192.168.36.111:3306).
+Thu May  3 07:02:47 2018 - [warning]  log-bin is not set on slave 192.168.36.111(192.168.36.111:3306). This host cannot be a master.
+Thu May  3 07:02:47 2018 - [info]  read_only=1 is not set on slave 192.168.36.113(192.168.36.113:3306).
+Thu May  3 07:02:47 2018 - [warning]  relay_log_purge=0 is not set on slave 192.168.36.113(192.168.36.113:3306).
+Thu May  3 07:02:47 2018 - [warning]  log-bin is not set on slave 192.168.36.113(192.168.36.113:3306). This host cannot be a master.
+Thu May  3 07:02:47 2018 - [info] Checking replication filtering settings..
+Thu May  3 07:02:47 2018 - [info]  binlog_do_db= , binlog_ignore_db= 
+Thu May  3 07:02:47 2018 - [info]  Replication filtering check ok.
+Thu May  3 07:02:48 2018 - [info] GTID (with auto-pos) is not supported
+Thu May  3 07:02:48 2018 - [info] Starting SSH connection tests..
+Thu May  3 07:02:55 2018 - [info] All SSH connection tests passed successfully.
+Thu May  3 07:02:55 2018 - [info] Checking MHA Node version..
+Thu May  3 07:02:57 2018 - [info]  Version check ok.
+Thu May  3 07:02:57 2018 - [info] Checking SSH publickey authentication settings on the current master..
+Thu May  3 07:02:57 2018 - [info] HealthCheck: SSH to 192.168.36.107 is reachable.
+Thu May  3 07:02:58 2018 - [info] Master MHA Node version is 0.56.
+Thu May  3 07:02:58 2018 - [info] Checking recovery script configurations on 192.168.36.107(192.168.36.107:3306)..
+Thu May  3 07:02:58 2018 - [info]   Executing command: save_binary_logs --command=test --start_pos=4 --binlog_dir=/var/lib/mysql,/var/log/mysql --output_file=/var/tmp/save_binary_logs_test --manager_version=0.56 --start_file=master51.000001 
+Thu May  3 07:02:58 2018 - [info]   Connecting to root@192.168.36.107(192.168.36.107:22).. 
+  Creating /var/tmp if not exists..    ok.
+  Checking output directory is accessible or not..
+   ok.
+  Binlog found at /var/lib/mysql, up to master51.000001
+Thu May  3 07:02:58 2018 - [info] Binlog setting check done.
+Thu May  3 07:02:58 2018 - [info] Checking SSH publickey authentication and checking recovery script configurations on all alive slave servers..
+Thu May  3 07:02:58 2018 - [info]   Executing command : apply_diff_relay_logs --command=test --slave_user='root' --slave_host=192.168.36.108 --slave_ip=192.168.36.108 --slave_port=3306 --workdir=/var/tmp --target_version=5.7.17-log --manager_version=0.56 --relay_log_info=/var/lib/mysql/relay-log.info  --relay_dir=/var/lib/mysql/  --slave_pass=xxx
+Thu May  3 07:02:58 2018 - [info]   Connecting to root@192.168.36.108(192.168.36.108:22).. 
+  Checking slave recovery environment settings..
+    Opening /var/lib/mysql/relay-log.info ... ok.
+    Relay log found at /var/lib/mysql, up to db108-relay-bin.000003
+    Temporary relay log file is /var/lib/mysql/db108-relay-bin.000003
+    Testing mysql connection and privileges..mysql: [Warning] Using a password on the command line interface can be insecure.
+ done.
+    Testing mysqlbinlog output.. done.
+    Cleaning up test file(s).. done.
+Thu May  3 07:02:59 2018 - [info]   Executing command : apply_diff_relay_logs --command=test --slave_user='root' --slave_host=192.168.36.109 --slave_ip=192.168.36.109 --slave_port=3306 --workdir=/var/tmp --target_version=5.7.17-log --manager_version=0.56 --relay_log_info=/var/lib/mysql/relay-log.info  --relay_dir=/var/lib/mysql/  --slave_pass=xxx
+Thu May  3 07:02:59 2018 - [info]   Connecting to root@192.168.36.109(192.168.36.109:22).. 
+  Checking slave recovery environment settings..
+    Opening /var/lib/mysql/relay-log.info ... ok.
+    Relay log found at /var/lib/mysql, up to db109-relay-bin.000002
+    Temporary relay log file is /var/lib/mysql/db109-relay-bin.000002
+    Testing mysql connection and privileges..mysql: [Warning] Using a password on the command line interface can be insecure.
+ done.
+    Testing mysqlbinlog output.. done.
+    Cleaning up test file(s).. done.
+Thu May  3 07:03:00 2018 - [info]   Executing command : apply_diff_relay_logs --command=test --slave_user='root' --slave_host=192.168.36.111 --slave_ip=192.168.36.111 --slave_port=3306 --workdir=/var/tmp --target_version=5.7.17 --manager_version=0.56 --relay_log_info=/var/lib/mysql/relay-log.info  --relay_dir=/var/lib/mysql/  --slave_pass=xxx
+Thu May  3 07:03:00 2018 - [info]   Connecting to root@192.168.36.111(192.168.36.111:22).. 
+  Checking slave recovery environment settings..
+    Opening /var/lib/mysql/relay-log.info ... ok.
+    Relay log found at /var/lib/mysql, up to db111-relay-bin.000002
+    Temporary relay log file is /var/lib/mysql/db111-relay-bin.000002
+    Testing mysql connection and privileges..mysql: [Warning] Using a password on the command line interface can be insecure.
+ done.
+    Testing mysqlbinlog output.. done.
+    Cleaning up test file(s).. done.
+Thu May  3 07:03:00 2018 - [info]   Executing command : apply_diff_relay_logs --command=test --slave_user='root' --slave_host=192.168.36.113 --slave_ip=192.168.36.113 --slave_port=3306 --workdir=/var/tmp --target_version=5.7.17 --manager_version=0.56 --relay_log_info=/var/lib/mysql/relay-log.info  --relay_dir=/var/lib/mysql/  --slave_pass=xxx
+Thu May  3 07:03:00 2018 - [info]   Connecting to root@192.168.36.113(192.168.36.113:22).. 
+  Checking slave recovery environment settings..
+    Opening /var/lib/mysql/relay-log.info ... ok.
+    Relay log found at /var/lib/mysql, up to db113-relay-bin.000002
+    Temporary relay log file is /var/lib/mysql/db113-relay-bin.000002
+    Testing mysql connection and privileges..mysql: [Warning] Using a password on the command line interface can be insecure.
+ done.
+    Testing mysqlbinlog output.. done.
+    Cleaning up test file(s).. done.
+Thu May  3 07:03:01 2018 - [info] Slaves settings check done.
+Thu May  3 07:03:01 2018 - [info] 
+192.168.36.107(192.168.36.107:3306) (current master)
+ +--192.168.36.108(192.168.36.108:3306)
+ +--192.168.36.109(192.168.36.109:3306)
+ +--192.168.36.111(192.168.36.111:3306)
+ +--192.168.36.113(192.168.36.113:3306)
+
+Thu May  3 07:03:01 2018 - [info] Checking replication health on 192.168.36.108..
+Thu May  3 07:03:01 2018 - [info]  ok.
+Thu May  3 07:03:01 2018 - [info] Checking replication health on 192.168.36.109..
+Thu May  3 07:03:01 2018 - [info]  ok.
+Thu May  3 07:03:01 2018 - [info] Checking replication health on 192.168.36.111..
+Thu May  3 07:03:01 2018 - [info]  ok.
+Thu May  3 07:03:01 2018 - [info] Checking replication health on 192.168.36.113..
+Thu May  3 07:03:01 2018 - [info]  ok.
+Thu May  3 07:03:01 2018 - [warning] master_ip_failover_script is not defined.
+Thu May  3 07:03:01 2018 - [warning] shutdown_script is not defined.
+Thu May  3 07:03:01 2018 - [info] Got exit code 0 (Not master dead).
+
+MySQL Replication Health is OK.
+[root@host114 mhasoft]# 
+
+没有在后台运行 ，占用当前终端执行
+[root@host114 mhasoft]# masterha_manager --conf=/etc/mha_manager/app1.cnf --remove_dead_master_conf --ignore_last_failover
+Thu May  3 07:07:15 2018 - [warning] Global configuration file /etc/masterha_default.cnf not found. Skipping.
+Thu May  3 07:07:15 2018 - [info] Reading application default configuration from /etc/mha_manager/app1.cnf..
+Thu May  3 07:07:15 2018 - [info] Reading server configuration from /etc/mha_manager/app1.cnf..
+
+
+再开新终端查看状态
+[root@host114 ~]# masterha_check_status --conf=/etc/mha_manager/app1.cnf 
+app1 (pid:3097) is running(0:PING_OK), master:192.168.36.107
+[root@host114 ~]# 
+
+
+停止服务，
+[root@host114 ~]# masterha_stop --conf=/etc/mha_manager/app1.cnf 
+Stopped app1 successfully.
+
+查看状态
+[root@host114 ~]# masterha_check_status  --conf=/etc/mha_manager/app1.cnf 
+app1 is stopped(2:NOT_RUNNING).
+[root@host114 ~]#
+
+
+
+测试高可用配置
+
+1.1 拷贝故障转移脚本到系统目录下/usr/local/bin/
+[root@host114 ~]# cp mha4mysql-manager-0.56/samples/scripts/master_ip_failover  /usr/local/bin/
+
+vim  /usr/local/bin/scripts/master_ip_failover  在脚本中添加如下代码
+
+  $new_master_password
+);
+
+my $vip = '192.168.36.250/24';  # Virtual IP 
+my $key = "1";
+my $ssh_start_vip = "/sbin/ifconfig ens33:$key $vip";
+my $ssh_stop_vip = "/sbin/ifconfig ens33:$key down";
+
+GetOptions(
+:wq
+
+
+在主库服务器 上手动绑定VIP地址(mha_manager服务不负责部署 只负责故障转移，所以服务启动之前，主库的VIP地址要手动配置)
+[root@db107 ~]# ifconfig ens33:1 192.168.36.250/24
+
+
+去掉app1.cnf文件master_ip_failover_script 项的注释，启动服务
+[root@host114 ~]# grep  master_ip_failover_script  /etc/mha_manager/app1.cnf 
+master_ip_failover_script=/usr/local/bin/master_ip_failover
+
+
+[root@host114 ~]# masterha_manager --conf=/etc/mha_manager/app1.cnf --remove_dead_master_conf --ignore_last_failover
+Fri May  4 02:23:42 2018 - [warning] Global configuration file /etc/masterha_default.cnf not found. Skipping.
+Fri May  4 02:23:42 2018 - [info] Reading application default configuration from /etc/mha_manager/app1.cnf..
+Fri May  4 02:23:42 2018 - [info] Reading server configuration from /etc/mha_manager/app1.cnf..
+
+
+
+查看服务状态
+[root@host114 ~]# masterha_check_status --conf=/etc/mha_manager/app1.cnf 
+app1 (pid:21284) is running(0:PING_OK), master:192.168.36.107
+[root@host114 ~]#
+
+[root@host114 ~]# ls /etc/mha_manager/
+app1.cnf  app1.master_status.health  manager.log
+[root@host114 ~]# 
+
+PING vip地址
+[root@host114 ~]# ping -c 2 192.168.36.250
+PING 192.168.36.250 (192.168.36.250) 56(84) bytes of data.
+64 bytes from 192.168.36.250: icmp_seq=1 ttl=64 time=1.35 ms
+64 bytes from 192.168.36.250: icmp_seq=2 ttl=64 time=0.549 ms
+
+
+
+客户端连接访问vip地址，访问数据库服务器
+[root@host114 ~]# mysql -h192.168.36.250  -uadmin -p123456
+
+mysql> select @@hostname;
++------------+
+| @@hostname |
++------------+
+| db107      |
++------------+
+1 row in set (0.00 sec)
+
+mysql> 
+
+
+在拿这vip地址的主库上 执行关机命令 ]# shutdown   -h   now
+
+
+在管理主机上查看日志内容  
+]# tail  -f  /etc/mha_manager/ 
+.....
+.....
+192.168.36.108(192.168.36.108:3306): Resetting slave info succeeded.
+Master failover to 192.168.36.108(192.168.36.108:3306) completed successfully.  //提示vip地址部署在了那台数据库服务器上了
+
+
+查看状态信息
+[root@host114 ~]# masterha_check_status --conf=/etc/mha_manager/app1.cnf 
+app1 (pid:23314) is running(0:PING_OK), master:192.168.36.108   //显示主库那一台
+[root@host114 ~]#
+
+在对应的数据库服务器上查看vip地址
+[root@db108 share]# ip addr show  | grep  192.168.36.250
+    inet 192.168.36.250/24 brd 192.168.36.255 scope global secondary ens33:1
+[root@db108 share]# 
+
+
+客户端连接VIP地址  访问数据库服务器
+
+[root@host114 ~]# mysql -h192.168.36.250  -uadmin -p123456
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 83
+Server version: 5.7.17-log MySQL Community Server (GPL)
+
+Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> 
+mysql> select  * from gamedb.t1;
++------+
+| id   |
++------+
+|  999 |
+|  999 |
+| 1000 |
+| 1000 |
+| 1000 |
++------+
+5 rows in set (0.02 sec)
+
+[root@host114 ~]# ls /etc/mha_manager/
+app1.cnf  app1.failover.complete  app1.master_status.health  manager.log
+[root@host114 ~]# 
+
+
+
+
+
+

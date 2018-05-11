@@ -1,0 +1,565 @@
+
+mysql> create table user2  select name,uid,gid from user limit 3;
+
+mysql> create table info  select name,uid,homedir,shell from user limit 5;
+
+show  tables;
+ 
+create  or replace view  v1 
+
+as  select  
+a.name as aname , 
+b.name as bname , 
+a.uid as auid , 
+b.uid as  buid 
+from user2 a left join info b on a.uid=b.uid;
+
+select  * from  v4;
+
+mysql>  create or replace view  v2 as  select  * from user;
+
+
+
+select  * from v2;  select
+
+
+
+create  view  
+v1 
+as   
+select    x,x,x from 表/ 视图
+[with  local/cascade check option]；
+                                                              
+
+
+
+
+
+create table  a  select  * from user  where  uid < 10;
+select   *  from  a;
+
+create  view  va1 
+as  
+select  * from a 
+where  uid < 8  with  check option;
+
+create view va2 
+as 
+select  * from va1 
+where uid >=5 
+with local check option;
+
+create view va3 
+as 
+select  * from va1 
+where uid >=5 
+with cascaded check option;
+对创建的试图va1  va2  va3  插入或更新记录的操作。验证限制。
+
++++++++++++++++++++++++++++++++++
+创建名称为say的存储过程，功能查看db9库下user表的前10记录信息。
+mysql> delimiter //
+mysql> create procedure  say() 
+begin
+     select  * from  db9.user where id<=10;
+end
+//
+mysql> delimiter  ;
+
+调用存储过程
+mysql>  call    say;
+mysql>  call    say();
+
+
+查看存储过程
+mysql> show  procedure  status\G; 
+mysql>
+select db,name,type from   mysql.proc 
+where name="say2"\G;
+
+mysql> show  create  procedure  say;
+
+drop   procedure  say;
+
+参数类型
+
+mysql> delimiter //
+mysql> create procedure  say2（
+IN   username   char(20), 
+IN  x  int(2)
+) 
+begin
+     select  * from  db9.user where name="@username"  and uid=@x; 
+end
+//
+mysql> delimiter  ;
+
+call   say2("tom",19)
+call   say2("lucy",30)
+
+++++++++++++++++++++++++++++
+mysql> delimiter //
+mysql> create procedure say2( in username  char(10) )
+    -> begin
+    -> select  username;
+    -> select  * from db9.user where name=username;
+    -> end
+    -> //
+Query OK, 0 rows affected (0.06 sec)
+
+mysql> delimiter ;
+
+
+mysql>  call  say2;
+mysql>  call  say2("bin");
+mysql>  call  say2("mysql");
+定义局部变量
+delimiter //
+create procedure say4()
+    
+begin
+    
+    declare x int default 11;  
+    select x;
+  
+    select sum(uid) into x from db9.user  where  uid<=100;
+  
+    select x;
+    
+end
+    
+//
+delimiter ;
+
+call  say3;  //因为没有参数所以可以不加（）
+
+
+
+delimiter //
+create procedure say5(
+
+in bash char(20), 
+in  nologin char(25), 
+out x int , 
+out y int
+
+)
+begin
+
+    declare z int ;
+    
+set z=0;
+    
+select count(name) into  @x from db9.user where shell=bash;      
+    select count(name) into  @y from db9.user where shell=nologin;
+
+    set z=@x+@y;
+    
+select  z;
+
+end
+ 
+//
+delimiter ;
+call   say5("/bin/bash","/sbin/nologin",@x,@y);
+
+
+delimiter //
+create  procedure say6(in  x  int(1) )
+begin
+                     
+       if  x <= 10 then
+                          
+           select * from db9.user where id <=x;
+                     
+       end if;
+              
+end
+              
+//
+delimiter ;
+call   say6(11);
+call   say(5);
+
+
+
+delimiter  //
+create  procedure say10(in  x  int(1) )
+begin
+                     
+       if  x <= 10 then
+                          
+           select * from db9.user where id <= x;
+                     
+       end if;
+              
+end
+              
+//
+delimiter ;
+
+delimiter //create  procedure  p1(in  x int(1) )
+              
+begin
+                  
+        if   x is null  then
+                      
+             set @x = 1;
+                      
+             select  * from db9.user where id=x;
+                  
+       end if;
+                  
+       if  x <= 10 then
+                        
+            select * from db9.user where id <=x;
+                  
+       end if;
+               
+end
+              
+//
+delimiter  ;+++++++++++++++++++++++++++++
+delimiter //create  procedure  p2(in  x int(1) )
+              
+begin
+                  
+        if   x is null  then
+                      
+             set @x = 1;
+                      
+             select  * from userdb.user where id=x;
+                  
+       else                      
+            select * from userdb.user where id <=x;
+                  
+       end if;
+               
+end
+              
+//
+delimiter  ;
+
+
+delimiter //
+create  procedure  p7(in  x char(10) )
+              
+begin
+                  
+        if   x is null  then
+                      
+             set @x = "mysql";
+   
+             select  @x;                   
+             select  * from db9.user where name=@x; 
+        else       
+              select  * from db9.user where name=x ; 
+              select  * from db9.user where name=@x ;                
+       end if;
+                  
+end
+              
+//
+delimiter  ;
+call  p7(null);
+call  p7("bin");
+
++++++++++++++++++++++++++++++++++++++++++
+循环结构
+----while循环结构例子-------------------
+
+//输出数字1到5；
+drop procedure  say;
+delimiter //
+create  procedure say()
+begin
+declare i int;
+set i=1;
+while  i <= 5 do
+   select i;
+   set i=i+1;
+end while;
+end
+//
+delimiter ;
+
+
+---------------loop 死循环的例子-------------------
+mysql> drop procedure  say;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> delimiter //
+mysql> create  procedure say()
+    -> begin
+    -> declare i int;
+    -> set i=1;
+    -> loop
+    ->    select i;
+    ->    set i=i+1;
+    -> end loop;
+    -> end
+    -> //
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> delimiter ;
+mysql> call say(); #不按ctrl+c 结束 会一直执行
+
+----------------------定义标签名称 条件匹配时 结束循环--------------------
+
+
+mysql> drop procedure  say;
+mysql> delimiter //
+mysql> create  procedure say()
+    -> begin
+    -> declare i int;
+    -> set i=1;
+    -> loab1:loop  #给loop循环定义标签名称为 loab1
+    ->    select i;
+    ->    set i=i+1;
+    ->    if  i=3  then  #变量i的值加到3的时候 结束循环
+    ->      LEAVE loab1; 
+    ->    end if;
+    -> end loop;
+    -> end
+    -> //
+Query OK, 0 rows affected (0.02 sec)
+
+mysql> delimiter ;
+mysql> 
+mysql> call say();
++------+
+| i    |
++------+
+|    1 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    2 |
++------+
+1 row in set (0.00 sec)
+
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> 
+
+
+
+----------------------定义标签名称 条件匹配时 结束当前循环 执行下一次循环--------------------
+mysql> drop procedure  say;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> delimiter //
+mysql> create  procedure say()  #输出数字1到6 但不输出数字3
+    -> begin
+    -> declare i int;
+    -> set i=1;
+    -> loab1:loop
+    ->    select i;
+    ->    set i=i+1;
+    ->    if  i=3  then     #i值是3时结束本次循环
+    ->       iterate loab1; 
+    ->    end if;
+    ->    if  i=7 then     #i值是7时 结束循环
+    -> leave loab1;
+    ->    end if;  
+    -> end loop;
+    -> end
+    -> //
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> delimiter ;
+mysql> call say();
++------+
+| i    |
++------+
+|    1 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    2 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    3 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    4 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    5 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    6 |
++------+
+1 row in set (0.00 sec)
+
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> 
+
+
+---------------------------使用repeat循环输出数字1到5-----------------------
+mysql> drop procedure  say;
+mysql> delimiter //
+mysql> create  procedure say()
+    -> begin
+    -> declare i int;
+    -> set i=1;
+    -> repeat
+    ->     select i;
+    ->     set i=i+1;
+    ->     until  i=6 
+    -> end repeat;
+    -> end
+    -> //
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> delimiter ;
+mysql> call say();
++------+
+| i    |
++------+
+|    1 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    2 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    3 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    4 |
++------+
+1 row in set (0.00 sec)
+
++------+
+| i    |
++------+
+|    5 |
++------+
+1 row in set (0.00 sec)
+
+Query OK, 0 rows affected (0.00 sec)
+
+mysql>
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+drop procedure  say;
+delimiter //
+create  procedure say()
+begin
+declare i int;
+set i=1;
+repeat
+   select i;
+   set i=i+1;
+   until  i=6 
+end repeat;
+end
+//
+delimiter ;
+
+
+-------------------一起向表中插入10条记录--------------------
+mysql> delimiter //
+mysql> create procedure adddata()
+    -> begin
+    -> declare n  int default 0;
+    -> while n<10
+    -> do
+    -> insert into studydb.user(name,uid) values("bob",888);
+    -> set n = n+1;
+    -> end while;
+    -> end
+    -> //
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> 
+
+mysql> call adddata();
+Query OK, 1 row affected (0.21 sec)
+
+mysql> select  name,uid from user where name="bob" and uid=888;
++------+------+
+| name | uid  |
++------+------+
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+| bob  |  888 |
+---------------
+
+
+----------------------自定义插入记录的行数--------------------------
+mysql> drop procedure  say;
+mysql> delimiter //
+mysql> create  procedure say(in  num  int(2) )
+    -> begin
+    -> declare i int;
+    -> set i=1;
+    -> while  i <= num do
+    ->    insert into userdb.user(name,gid)values("bob",i);
+    ->    set i=i+1;
+    -> end while;
+    -> end
+    -> //
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> delimiter ;
+mysql> 
+
+mysql> call say(3);
+Query OK, 1 row affected (0.09 sec)
+
+mysql> select * from user where name="bob"; #查看是否插入记录
++----+------+------+----------+------+------+---------+---------+-------+
+| id | name | sex  | password | pay  | gid  | comment | homedir | shell |
++----+------+------+----------+------+------+---------+---------+-------+
+| 45 | bob  | boy  | NULL     | NULL |    1 | NULL    | NULL    | NULL  |
+| 46 | bob  | boy  | NULL     | NULL |    2 | NULL    | NULL    | NULL  |
+| 47 | bob  | boy  | NULL     | NULL |    3 | NULL    | NULL    | NULL  |
++----+------+------+----------+------+------+---------+---------+-------+
+3 rows in set (0.00 sec)
+
+mysql> 
+
+[root@room9pc17 database]# 

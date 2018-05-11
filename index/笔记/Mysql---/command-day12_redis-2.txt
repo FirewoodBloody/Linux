@@ -1,0 +1,479 @@
+搭建Redis 集群
+
+准备6台redis服务器，具体要求如下：
+ip地址                 端口              etho                         日志文件名
+192.168.4.51     6051            都可以接收连接请求   redis51.log
+192.168.4.52     6052            都可以接收连接请求   redis52.log
+192.168.4.53     6053            都可以接收连接请求   redis53.log
+192.168.4.54     6054            都可以接收连接请求   redis54.log
+192.168.4.55     6055            都可以接收连接请求   redis55.log
+192.168.4.56     6056            都可以接收连接请求   redis56.log
+
+环境准备
+1  在6台redis服务器上运行服务，按照如下要求修改配置文件后，重启redis服务。
+
+]#vim   /etc/redis/6379.conf
+bind   192.168.4.56    #只指定物理接口ip地址
+port    6056                 #不允许相同
+daemonize yes
+cluster-enabled  yes
+pidfile /var/run/redis_56.pid    #不允许相同
+cluster-config-file   nodes-6056.conf   #不允许相同
+cluster-node-timeout 5000   #集群节点之间通信超时时间单位秒
+:wq
+
+停止服务
+]# redis-cli  -h 192.168.4.56 -p 6056   [ -a  密码  ] shutdown
+
+启动服务  
+]# /etc/init.d/redis_6379 start
+
+连接服务
+[root@host56 ~]# redis-cli  -h 192.168.4.56  -p 6056
+
+
+装包： 在执行创建集群命令的主机安装ruby软件包（192.168.4.51）
+
+安装解释ruby代码的软件包
+[root@host51 ~]# yum  -y  install   ruby   rubygems     
+[root@host51 ~]# rpm  -q rubygems  ruby
+rubygems-2.0.14.1-30.el7.noarch
+ruby-2.0.0.648-30.el7.x86_64
+[root@host51 ~]#
+
+[root@host51 redis-cluster]# rpm  -ivh  --nodeps ruby-devel-2.0.0.648-30.el7.x86_64.rpm
+
+安装ruby连接redis 接口程序 gem
+[root@host51 redis-cluster]# which  gem
+/usr/bin/gem
+[root@host51 redis-cluster]# gem  install  redis-3.2.1.gem 
+Successfully installed redis-3.2.1
+Parsing documentation for redis-3.2.1
+Installing ri documentation for redis-3.2.1
+1 gem installed
+[root@host51 redis-cluster]#
+
+生成创建集群的脚本redis-trib.rb
+[root@host51 src]# echo $PATH
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+
+[root@host51 src]# cd
+[root@host51 ~]# cp redis-4.0.8/src/redis-trib.rb   /usr/local/bin/
+
+创建集群：
+[root@host51 ~]# redis-trib.rb  create   --replicas  1  \  
+192.168.4.51:6051  \
+192.168.4.52:6052   \
+192.168.4.53:6053   \
+192.168.4.54:6054   \
+192.168.4.55:6055   \ 
+192.168.4.56:6056
+
+
+[ERR] Node 192.168.4.54:6054 is not empty. Either the node already knows other nodes (check with 
+
+CLUSTER NODES) or contains some key in database 0.
+
+[root@db54 ~]# redis-cli  -h  192.168.4.54  -p  6054
+192.168.4.54:6054> flushall
+OK
+192.168.4.54:6054> keys *
+(empty list or set)
+192.168.4.54:6054> flushall
+OK
+192.168.4.54:6054> save
+OK
+192.168.4.54:6054> quit
+[root@db54 ~]#
+
+
+
+槽位个数是16384
+范围0-16383
+
+[root@host51 ~]# redis-trib.rb  create   --replicas  1  192.168.4.51:6051  192.168.4.52:6052 
+
+192.168.4.53:6053 192.168.4.54:6054 192.168.4.55:6055 192.168.4.56:6056   #创建集群
+ --replicas  1    表示给master 配置1个slave
+
+>>> Creating cluster
+>>> Performing hash slots allocation on 6 nodes...
+Using 3 masters:
+192.168.4.51:6051
+192.168.4.52:6052
+192.168.4.53:6053
+Adding replica 192.168.4.55:6055 to 192.168.4.51:6051
+Adding replica 192.168.4.56:6056 to 192.168.4.52:6052
+Adding replica 192.168.4.54:6054 to 192.168.4.53:6053
+M: 0ec903c572270a90f3b140fba31aac15aaf5336b 192.168.4.51:6051
+   slots:0-5460 (5461 slots) master
+M: 5278df7384edc9774b1a36b0b9d60a813a7424a9 192.168.4.52:6052
+   slots:5461-10922 (5462 slots) master
+M: 6cdb4c64c48c0ee2ca35bf139660f31ca92821dc 192.168.4.53:6053
+   slots:10923-16383 (5461 slots) master
+S: 388c33e7128fc961b381ad3b3c27c3c217912666 192.168.4.54:6054
+   replicates 6cdb4c64c48c0ee2ca35bf139660f31ca92821dc
+S: 651f7d99965316c1b8a27a2e9b034a5b14c2be55 192.168.4.55:6055
+   replicates 0ec903c572270a90f3b140fba31aac15aaf5336b
+S: a3af3096ee214c92a178eadf6e9299584899e62f 192.168.4.56:6056
+   replicates 5278df7384edc9774b1a36b0b9d60a813a7424a9
+Can I set the above configuration? (type 'yes' to accept): yes
+>>> Nodes configuration updated
+>>> Assign a different config epoch to each node
+>>> Sending CLUSTER MEET messages to join the cluster
+Waiting for the cluster to join....
+>>> Performing Cluster Check (using node 192.168.4.51:6051)
+M: 0ec903c572270a90f3b140fba31aac15aaf5336b 192.168.4.51:6051
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+M: 388c33e7128fc961b381ad3b3c27c3c217912666 192.168.4.54:6054
+   slots:9678 (1 slots) master
+   0 additional replica(s)
+S: 651f7d99965316c1b8a27a2e9b034a5b14c2be55 192.168.4.55:6055
+   slots: (0 slots) slave
+   replicates 0ec903c572270a90f3b140fba31aac15aaf5336b
+S: a3af3096ee214c92a178eadf6e9299584899e62f 192.168.4.56:6056
+   slots: (0 slots) slave
+   replicates 5278df7384edc9774b1a36b0b9d60a813a7424a9
+M: 6cdb4c64c48c0ee2ca35bf139660f31ca92821dc 192.168.4.53:6053
+   slots:10923-16383 (5461 slots) master
+   0 additional replica(s)
+M: 5278df7384edc9774b1a36b0b9d60a813a7424a9 192.168.4.52:6052
+   slots:5461-9677,9679-10922 (5461 slots) master
+   1 additional replica(s)
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+[root@host51 ~]# 
+
+
+[root@db52 redis-4.0.8]# cat /var/lib/redis/6052/nodes-6052.conf   #集群配置文件
+6cdb4c64c48c0ee2ca35bf139660f31ca92821dc 192.168.4.53:6053@16053 master - 0 1526096611374 
+
+3 connected 10923-16383
+0ec903c572270a90f3b140fba31aac15aaf5336b 192.168.4.51:6051@16051 master - 0 1526096612000 
+
+1 connected 0-5460
+388c33e7128fc961b381ad3b3c27c3c217912666 192.168.4.54:6054@16054 master - 0 1526096611043 
+
+4 connected 9678
+a3af3096ee214c92a178eadf6e9299584899e62f 192.168.4.56:6056@16056 slave 
+
+5278df7384edc9774b1a36b0b9d60a813a7424a9 0 1526096611745 6 connected
+651f7d99965316c1b8a27a2e9b034a5b14c2be55 192.168.4.55:6055@16055 slave 
+
+0ec903c572270a90f3b140fba31aac15aaf5336b 0 1526096613000 5 connected
+5278df7384edc9774b1a36b0b9d60a813a7424a9 192.168.4.52:6052@16052 myself,master - 0 
+
+1526096612000 2 connected 5461-9677 9679-10922
+vars currentEpoch 6 lastVoteEpoch 0
+[root@db52 redis-4.0.8]# 
+
+
+
+
+
+
+
+ set the above configuration? (type 'yes' to accept): yes
+/usr/local/share/gems/gems/redis-3.2.1/lib/redis/client.rb:113:in `call': ERR Slot 0 is already busy 
+
+(Redis::CommandError)
+	from /usr/local/share/gems/gems/redis-3.2.1/lib/redis.rb:2556:in `block in method_missing'
+	from /usr/local/share/gems/gems/redis-3.2.1/lib/redis.rb:37:in `block in synchronize'
+	from /usr/share/ruby/monitor.rb:211:in `mon_synchronize'
+	from /usr/local/share/gems/gems/redis-3.2.1/lib/redis.rb:37:in `synchronize'
+	from /usr/local/share/gems/gems/redis-3.2.1/lib/redis.rb:2555:in `method_missing'
+	from /usr/local/bin/redis-trib.rb:212:in `flush_node_config'
+	from /usr/local/bin/redis-trib.rb:906:in `block in flush_nodes_config'
+	from /usr/local/bin/redis-trib.rb:905:in `each'
+	from /usr/local/bin/redis-trib.rb:905:in `flush_nodes_config'
+	from /usr/local/bin/redis-trib.rb:1426:in `create_cluster_cmd'
+	from /usr/local/bin/redis-trib.rb:1830:in `<main>'
+[root@mysql51 ~]# 
+
+
+
+[ERR] Node 192.168.4.53:6053 is not configured as a cluster node.
+
+
+
+每台 redis服务 在本机登录 查看集群信息
+
+[root@host51 ~]# redis-cli  -c -h 192.168.4.51  -p 6051 
+
+-c  连接集群中的主机
+[root@host51 ~]# redis-cli  -c -h 192.168.4.51  -p 6051 
+192.168.4.51:6051> CLUSTER  info
+192.168.4.51:6051> CLUSTER nodes
+192.168.4.51:6051> quit
+
+
+192.168.4.51:6051> CLUSTER nodes
+388c33e7128fc961b381ad3b3c27c3c217912666 192.168.4.54:6054@16054 master - 0 1526108837942 
+
+4 connected 9678
+651f7d99965316c1b8a27a2e9b034a5b14c2be55 192.168.4.55:6055@16055 slave 
+
+0ec903c572270a90f3b140fba31aac15aaf5336b 0 1526108838444 5 connected
+a3af3096ee214c92a178eadf6e9299584899e62f 192.168.4.56:6056@16056 slave 
+
+5278df7384edc9774b1a36b0b9d60a813a7424a9 0 1526108838946 6 connected
+6cdb4c64c48c0ee2ca35bf139660f31ca92821dc 192.168.4.53:6053@16053 master - 0 1526108837942 
+
+3 connected 10923-16383
+0ec903c572270a90f3b140fba31aac15aaf5336b 192.168.4.51:6051@16051 myself,master - 0 
+
+1526108836000 1 connected 0-5460
+5278df7384edc9774b1a36b0b9d60a813a7424a9 192.168.4.52:6052@16052 master - 0 
+
+1526108839447 2 connected 5461-9677 9679-10922
+192.168.4.51:6051> 
+192.168.4.51:6051> 
+192.168.4.51:6051> 
+192.168.4.51:6051> CLUSTER info
+cluster_state:ok
+cluster_slots_assigned:16384
+cluster_slots_ok:16384
+cluster_slots_pfail:0
+cluster_slots_fail:0
+cluster_known_nodes:6
+cluster_size:4
+cluster_current_epoch:6
+cluster_my_epoch:1
+cluster_stats_messages_ping_sent:26580
+cluster_stats_messages_pong_sent:20656
+cluster_stats_messages_update_sent:2
+cluster_stats_messages_sent:47238
+cluster_stats_messages_ping_received:20651
+cluster_stats_messages_pong_received:26580
+cluster_stats_messages_meet_received:5
+cluster_stats_messages_received:47236
+192.168.4.51:6051> 
+
+
+
+测试集群：连接master库 存储数据，对应的从库 会自动同步数据
+
+[root@host51 ~]# redis-cli  -c -h  master库ip地址  -p 对应的端口号
+
+[root@host51 ~]# redis-cli  -c -h 192.168.4.51  -p 6051 
+192.168.4.51:6051> CLUSTER nodes
+192.168.4.51:6051>
+
+[root@host51 ~]# redis-cli -c  -h 192.168.4.51  -p 6051 
+192.168.4.51:6051> set age  99
+OK
+192.168.4.51:6051> get age
+"99"
+192.168.4.51:6051>
+
+[root@db54 ~]# redis-cli -c  -h  192.168.4.54  -p 6054
+192.168.4.54:6054> get age
+-> Redirected to slot [741] located at 192.168.4.51:6051
+"99"
+192.168.4.51:6051> 
+
+
+二 、管理集群
+
+2.1  集群选举测试 ：   停止某个主库的redi服务  对应的从会自动升级主库
+
+
+2.2 向集群中添加新节点主机  192.168.4.77
+1  在主机57运行redis服务（要做对应的集群配置）
+装包   初始配置
+修改配置文件
+vim /etc/redis/6379.conf
+
+
+停止服务
+启动服务
+查看端口号
+    11  yum -y install gcc
+   12  init 6
+   13  ls
+   14  tar -zxf redis-4.0.8.tar.gz 
+   15  cd redis-4.0.8/
+   16  make
+   17  make install
+   18  ./utils/install_server.sh 
+   19  /etc/init.d/redis_6379  status
+   20  /etc/init.d/redis_6379  stop
+   21  vim /etc/redis/6379.conf 
+   22  /etc/init.d/redis_6379  start
+   23  /etc/init.d/redis_6379  status
+[root@redis77 redis-4.0.8]# netstat -utnalp  | grep redis-server
+tcp        0      0 192.168.4.77:16077      0.0.0.0:*               LISTEN      4705/redis-server 1 
+tcp        0      0 192.168.4.77:6077       0.0.0.0:*               LISTEN      4705/redis-server 1 
+[root@redis77 redis-4.0.8]# 
+
+redis-trib.rb   选项
+
+add-node   添加主机  (主机的角色是master)
+check   检查集群
+reshard  重新分配hash  slot
+
+
+
+2  把主机77添加到集群里
+redis-trib.rb  add-node    192.168.4.77:6077  192.168.4.71:6071 
+
+ [root@redis71 ~]# redis-trib.rb  add-node  192.168.4.77:6077  192.168.4.71:6071
+>>> Adding node 192.168.4.77:6077 to cluster 192.168.4.71:6071
+>>> Performing Cluster Check (using node 192.168.4.71:6071)
+S: 3bfd47406253a25be9b13504ff0ecdd8524e9a9a 192.168.4.71:6071
+   slots: (0 slots) slave
+   replicates abb585e1803d756eb0b2d9a1b23790b6712ee7b2
+M: cc0f13a4183eb06a771c5190319f7ac40626d04b 192.168.4.73:6073
+   slots:10923-16383 (5461 slots) master
+   1 additional replica(s)
+S: 5172f3a9cbd4fe8a488a8d45bdf60ae46ac9f900 192.168.4.76:6076
+   slots: (0 slots) slave
+   replicates 9717d02408e45ad996dcdbde6401bf1319727e22
+S: 30aac94cf32bd5d2446b584be5e7c6b0c07f7da0 192.168.4.74:6074
+   slots: (0 slots) slave
+   replicates cc0f13a4183eb06a771c5190319f7ac40626d04b
+M: 9717d02408e45ad996dcdbde6401bf1319727e22 192.168.4.72:6072
+   slots:5461-10922 (5462 slots) master
+   1 additional replica(s)
+M: abb585e1803d756eb0b2d9a1b23790b6712ee7b2 192.168.4.75:6075
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+>>> Send CLUSTER MEET to node 192.168.4.77:6077 to make it join the cluster.
+[OK] New node added correctly.
+[root@redis71 ~]# 
+
+
+
+redis-trib.rb  check  192.168.4.77:6077
+
+[root@redis71 ~]# redis-trib.rb  check  192.168.4.77:6077
+>>> Performing Cluster Check (using node 192.168.4.77:6077)
+M: 6cd754d126998090dcbe409315d7577bcd3b5605 192.168.4.77:6077
+   slots: (0 slots) master
+   0 additional replica(s)
+S: 5172f3a9cbd4fe8a488a8d45bdf60ae46ac9f900 192.168.4.76:6076
+   slots: (0 slots) slave
+   replicates 9717d02408e45ad996dcdbde6401bf1319727e22
+M: abb585e1803d756eb0b2d9a1b23790b6712ee7b2 192.168.4.75:6075
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+S: 3bfd47406253a25be9b13504ff0ecdd8524e9a9a 192.168.4.71:6071
+   slots: (0 slots) slave
+   replicates abb585e1803d756eb0b2d9a1b23790b6712ee7b2
+M: cc0f13a4183eb06a771c5190319f7ac40626d04b 192.168.4.73:6073
+   slots:10923-16383 (5461 slots) master
+   1 additional replica(s)
+M: 9717d02408e45ad996dcdbde6401bf1319727e22 192.168.4.72:6072
+   slots:5461-10922 (5462 slots) master
+   1 additional replica(s)
+S: 30aac94cf32bd5d2446b584be5e7c6b0c07f7da0 192.168.4.74:6074
+   slots: (0 slots) slave
+   replicates cc0f13a4183eb06a771c5190319f7ac40626d04b
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+[root@redis71 ~]# 
+
+
+手动重新分配hash slot  
+]# redis-trib.rb   reshard   192.168.4.77:6077
+
+4096   拿出多少个 hash  slot  给主机 192.168.4.77
+
+主机 192.168.4.77   id 值  
+
+all  从当前所有的master里 获取hash  slot  个数
+
+
+检查集群主机状态信息
+[root@redis71 ~]# redis-trib.rb  check  192.168.4.77:6077
+>>> Performing Cluster Check (using node 192.168.4.77:6077)
+M: 6cd754d126998090dcbe409315d7577bcd3b5605 192.168.4.77:6077
+   slots:0-1364,5461-6826,10923-12287 (4096 slots) master
+   0 additional replica(s)
+
+
+
+删除节点主机
+1  删除master角色的节点主机
+1.1 移除占用的hash槽（slot）
+1.2 删除主机
+
+]#redis-trib.rb  reshard  192.168.4.51:6051 
+4096    移除hash槽的个数
+主机id   目标主机id
+主机id   源主机id
+done   设置完毕
+yes     提交
+
+]# redis-trib.rb  del-node  192.168.4.51:6051   8eecda17577349125df9a6fcc37107c6c5f9bdc5
+
+
+2 删除slave角色的节点主机
+
+]# redis-trib.rb del-node  192.168.4.51:6051 651f7d99965316c1b8a27a2e9b034a5b14c2be55
+
+
+添加slave角色主机
+1  主机运行redis服务 并设置集群配置
+2  添加slave角色主机
+
+]# redis-trib.rb add-node --slave     要添加到集群中主机ip：端口     集群中已有的任意一个主机的ip:端口
+
+
+
+
+
+
+
+[ERR] Node 192.168.4.54:6054 is not empty. Either the node already knows other nodes (check with 
+
+CLUSTER NODES) or contains some key in database 0.
+
+rm  -rf   /var/lib/redis/6379/
+mkdir  /var/lib/redis/6379/
+chmod -R a+w   /var/lib/redis/6379/
+rm -rf    /var/run/redis_6379.pid
+/etc/init.d/redis_6379 start
+  211  /etc/init.d/redis_6379 status
+  212  redis-cli  -h 192.168.4.54 -p 6054
+
+[root@db54 redis]# redis-cli -c  -h 192.168.4.54 -p 6054
+192.168.4.54:6054> CLUSTER info
+cluster_state:fail
+cluster_slots_assigned:0
+192.168.4.54:6054> CLUSTER RESET
+OK
+
+192.168.4.54:6054>quit;
+
+
+
+]# redis-trib.rb add-node --slave   192.168.4.54:6054    192.168.4.51:6051
+
+192.168.4.54:6054> CLUSTER nodes
+5278df7384edc9774b1a36b0b9d60a813a7424a9 192.168.4.52:6052@16052 master - 0 
+
+1526121459000 2 connected 5461-9677 9679-10922
+6cdb4c64c48c0ee2ca35bf139660f31ca92821dc 192.168.4.53:6053@16053 master - 0 1526121460637 
+
+3 connected 10923-16383
+f7d5c6065d155b5d3d02a4efba10ca2d3722f634 192.168.4.54:6054@16054 myself,slave 
+
+0ec903c572270a90f3b140fba31aac15aaf5336b 0 1526121460000 0 connected
+0ec903c572270a90f3b140fba31aac15aaf5336b 192.168.4.51:6051@16051 master - 0 1526121459635 
+
+8 connected 0-5460 9678
+a3af3096ee214c92a178eadf6e9299584899e62f 192.168.4.56:6056@16056 slave 
+
+5278df7384edc9774b1a36b0b9d60a813a7424a9 0 1526121460000 2 connected
+192.168.4.54:6054> 
+

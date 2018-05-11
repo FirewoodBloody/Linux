@@ -1,0 +1,203 @@
+mysql-day06 部署mysql主从同步
+一、什么是mysql主从同步
+主：正在被客户端访问的数据库服务器，被称作主库服务器。
+从：自动同步主库上的数据的数据库服务器，被称作从库服务器。
+
+二、配置mysql主从同步
+2.1 拓扑图
+数据库服务器 192.168.4.51  做主库
+数据库服务器 192.168.4.52  做从库
+
+2.2  环境准备
+主从同步未配置之前，要保证从库上要有主库上的数据。
+禁用selinux    ]#  setenforce  0 
+关闭防火墙服务]# systemctl  stop firewalld
+物理连接正常 ]#  ping   -c   2   192.168.4.51/52
+数据库正常运行，管理可以从本机登录
+
+2.3 配置mysql主从同步
++++2.3.1 配置主库
+a 创建用户授权
+b 启用binlog日志
+c 查看正在使用binlog日志信息
+
++++.3.2  配置从库
+a 验证主库的用户授权
+b 指定server_id
+c 数据库管理员本机登录，指定主数据库服务器的信息
+mysql> change  master  to
+    -> master_host="主库ip地址",
+    -> master_user="主库授权用户名",
+    -> master_password="授权用户密码",
+    -> master_log_file="主库binlog日志文件名",
+    -> master_log_pos=binlog日志文件偏移量;
+d 启动slave进程
+e 查看进程状态信息
+
+相关命令
+mysql> show  slave  status;  # 显示从库状态信息
+mysql> show master status;  #显示本机的binlog日志文件信息
+mysql> show  processlist;  #查看当前数据库服务器上正在执行的程序
+mysql> start  slave ; #启动slave 进程
+mysql> stop  slave ; #停止slave 进程
+
+2.4 在客户端测试主从同步配置
+2.4.1  在主库服务器上添加访问数据时，使用连接用户
+2.4.2  客户端使用主库的授权用户，连接主库服务器，建库表插入记录
+2.4.3  在从库本机，使用管理登录查看是否有和主库一样库表记录及授权用户
+
+2.4.4 客户端使用主库的授权用户,连接从库服务器，也可以看到新建的库表及记录
++++++++++++++++++++++++++++++++
+三、mysql主从同步的工作原理
+从库数据库目录下的文件：
+master.info  记录主库信息
+主机名-relay-bin.XXXXXX  中继日志文件，记录主库上执行过的sql命令
+主机名-relay-bin.index 索引文件，记录当前已有的中继日志文件
+relay-log.info  中继日志文件，记录当前使用的中继日志信息
+
+从库IO线程 和SQL线程的作用？
+IO线程  把主库binlog日志里的sql命令记录到本机的中继日志文件
+SQL线程  执行本机中继日志文件里的sql命令，把数据写进本机。
+
+IO线程报错原因： 从库连接主库失败（ping   grant   firewalld  selinux）
+                           从库指定主库的日志信息错误（日志名   偏移量）
+
+Last_IO_Error: 报错信息
+
+修改步骤：
+mysql> stop  slave;
+mysql>  change  master  to   选项="值";
+mysql> start  slave;
+
+SQL线程报错原因： 执行本机中继日志文件里的sql命令,用到库或表在本机不存在。
+Last_SQL_Error: 报错信息
+
+设置从库暂时不同步主库的数据？
+在从库上把slave 进程停止 
+mysql> stop  slave;
+
+把从库恢复成独立的数据库服务器？
+]# rm -rf  /var/lib/mysql/master.info
+]# systemctl  restart mysqld
+]# rm  -rf   主机名-relay-bin.XXXXXX   主机名-relay-bin.index   relay-log.info
+
+四、mysql主从同步结构模式
+一主一从  ***
+一主多从  ***
+主从从
+主主结构（又称作互为主从）
+
+五、mysql主从同步常用配置参数
+主库服务器在配置文件my.cnf 使用的参数
+]#vim /etc/my.cnf
+[mysqld]
+binlog_do_db=库名列表   #只允许同步库Binlog_Ignore_DB=库名列表    #只不允许同步库
+]#  systemctl  restart  mysqld
+
+从库服务器在配置文件my.cnf 使用的参数
+]# vim /etc/my.cnf
+[mysqld]
+log_slave_updates
+  #级联复制
+relay_log=中继日志文件名
+replicate_do_db=库名列表   #只同步的库
+replicate_ignore_db=库名列表   #只不同步的库
+:wq
+]#  systemctl  restart  mysqld
+
+配置mysql主从从结构
+主库  192.168.4.51
+从库  192.168.4.52 （ 做51主机从库）
+从库  192.168.4.53 （ 做53主机从库）
+要求：客户端访问主库51 时 创建库表记录 在52 和53 数据库服务器都可以看到
+
+配置步骤：
+一、环境准备
+主从同步未配置之前，要保证从库上要有主库上的数据。
+禁用selinux    ]#  setenforce  0 
+关闭防火墙服务]# systemctl  stop firewalld
+物理连接正常 ]#  ping   -c   2   192.168.4.51/52
+数据库正常运行，管理可以从本机登录
+二、配置主从同步
+2.1 配置主库51
+用户授权
+启用binlog日志
+查看正在使用的日志信息
+
+2.2 配置从库52
+用户授权
+启用binlog日志，指定server_id  和 允许级联复制
+查看正在使用的日志信息
+验证主库的授权用户
+管理员登录指定主库信息
+启动slave进程
+查看进程状态信息
+
+2.3  配置从库53
+验证主库的授权用户
+指定server_id
+管理员登录指定主库信息
+启动slave进程
+查看进程状态信息
+
+三、客户端验证配置
+3.1 在主库上授权访问gamedb库的用户
+3.2 客户端使用授权用户连接主库，建库、表、插入记录
+3.3 客户端使用授权用户连接2台从库时，也可以看到主库上新的库表记录
+
+
+六、mysql主从同步复制模式 
+异步复制
+全同步复制
+半同步复制
+ 
+查看是否可以动态加载模块
+mysql> show variables like  "have_dynamic_loading";
+
+主库安装的模块
+mysql> INSTALL PLUGIN rpl_semi_sync_master  SONAME 'semisync_master.so';
+
+从库安装的模块
+mysql>  INSTALL PLUGIN rpl_semi_sync_slave  SONAME 'semisync_slave.so';
+
+查看系统库下的表，模块是否安装成功
+mysql> 
+SELECT   PLUGIN_NAME ,  PLUGIN_STATUS 
+FROM   INFORMATION_SCHEMA.PLUGINS  
+WHERE 
+PLUGIN_NAME  LIKE   '%semi%';
+
+启用半同步复制模式
+主库
+mysql> SET GLOBAL rpl_semi_sync_master_enabled = 1;
+
+从库
+mysql> SET GLOBAL rpl_semi_sync_slave_enabled = 1;
+
+查看半同步复制模式是否启用
+mysql>  show  variables  like  "rpl_semi_sync_%_enabled";
+
+修改配置文件/etc/my.cnf 让安装模块和启用的模式永久生效。
+
+主库
+vim /etc/my.cnf
+[mysqld]
+plugin-load=rpl_semi_sync_master=semisync_master.so
+rpl_semi_sync_master_enabled=1
+:wq
+
+
+从库
+vim /etc/my.cnf
+[mysqld]
+plugin-load=rpl_semi_sync_slave=semisync_slave.so
+rpl_semi_sync_slave_enabled=1
+:wq
+
+既做主又做从
+vim /etc/my.cnf
+[mysqld]
+plugin-load = "rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+rpl-semi-sync-master-enabled = 1
+rpl-semi-sync-slave-enabled = 1
+:wq
