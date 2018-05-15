@@ -8,7 +8,7 @@ do
 	read -p "请输入你猜想的数字:" sssd
 		if [ $sssd -ge 0 ] &> /dev/null ;then 
 			if [ $sssd -eq $num ];then
-				echo "\033[32m恭喜您,猜对了!!!\033[0m"
+				echo -e "\033[32m恭喜您,猜对了!!!\033[0m"
 				exit 0
 			elif [ $sssd -gt $num ];then
 				echo "抱歉,您猜大了!!!"

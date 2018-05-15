@@ -20,8 +20,8 @@ if [ -n $num1 ] && [ -n $num2 ] && [ -n $num3 ] &> /dev/null;then
 				num=$num2
 				num2=$num3
 				num3=$num				
-				echo $num1 $num2 $num3
 			fi
+				echo $num1 $num2 $num3
 		else
 			echo "请你输入三个不相等的参数！！！"
 		fi
