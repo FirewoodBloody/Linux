@@ -1,37 +1,175 @@
 
 
 
+副本集是什么
+– MongoDB复制是将数据同步在多个服务器的过程。
+– 复制提供了数据的冗余备份,并在多个服务器上存储
+数据副本,提高了数据的可用性, 并可以保证数据的
+安全性。
+– 复制还允许您从硬件故障和服务中断中恢复数据
+
+
+副本集工作过程
+– mongodb的复制至少需要两个节点。其中一个是主节
+点,负责处理客户端请求,其余的都是从节点,负责
+复制主节点上的数据。
+– mongodb各个节点常见的搭配方式为:一主一从、一
+主多从。
+– 主节点记录在其上的所有操作oplog,从节点定期轮询
+主节点获取这些操作,然后对自己的数据副本执行这
+些操作,从而保证从节点的数据与主节点一致。
+
+
+Master-Slave 主从复制
+– 实现数据同步只需要在某一台服务器启动时加上"-
+master"参数,以指明此服务器的角色是primary;另
+一台服务器加上"-slave"和"-source"参数,以指明此
+服务器的角色是slave。
+主从复制的优点如下:
+– 从服务器可以执行查询工作,降低主服务器访问压力。
+– 在从服务器执行备份,避免备份期间锁定主服务器的
+数据。
+– 当主服务器出现故障时,可以快速切换到从服务器,
+减少当机时间。
+
+
+Replica Sets复制集
+– MongoDB 在 1.6 版本对开发了新功能replica set,
+这比之前的replication 功能要强大一 些,增加了故障
+自动切换和自动修复成员节点,各个DB 之间数据完全
+一致,大大降低了维 护成功。使用replica set故障切
+换完全自动。
+– Replica Sets的结构类似一个集群,完全可以把它当成
+一个集群,因为它确实与集群实现的作用是一样的:
+如果其中一个节点出现故障,其他节点马上会将业务
+接管过来而无须停机操作
+
+
+启动服务时,指定主机所在副本集名称
+– 副本集成员间使用形同的副本集名称
+[root@server0 ~]#mkdir /data/db
+[root@server0 ~]#./mongod --bind_ip 192.168.4.61 \
+--logpath=/var/log/mongod.log \
+--replSet rs1 //指定副本集名称
+[root@server0 ~]# jobs
+Running .........
+
+vim /usr/local/mongodb/etc/mongodb.conf
+.....
+replSet=rs1
+.....
+:wq
 
 
 
 
+在任意一台主机连接mongod服务,执行如下操作
+[root@server0 ~]# ./mongo --host 192.168.4.61
+config = {
+_id:"rs1",	
+members:[
+{_id:0,host:"192.168.4.61:27020"},
+{_id:1,host:"192.168.4.62:27021"},
+{_id:2,host:"192.168.4.63:27022"}
+]
+};
 
 
+初始化Replica Sets环境
+执行如下命令
+– >rs.initiate(config)
+
+查看副本集信息
+• 查看状态信息
+– > rs.status()
+• 查看是否是master库
+– > rs .isMaster( )
 
 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+文档管理环境准备
+
+把系统用户信息/etc/passwd存储到mongodb服务器mdb库下的
+
+use mdb
+db.user.save({name:"tom",pass:"999999",uid:"999999",gid:"999999",comment:"",homedir:"/root/",shell:"/bin/bash"})
+mongoexport --host 192.168.4.61 --port 27020 -d mdb -c user -f name,pass,uid,gid,comment,homedir,shell --type=csv -o /tmp/user.csv
+cp /etc/passwd /tmp/passwd
+sed -i "s/:/,/g" /tmp/passwd
+cat /tmp/passwd >> /tmp/user.csv
+mongoimport --host 192.168.4.61 --port 27020 -d mdb -c user -f name:pass:uid:gid:comment:homedir:shell --type=csv < /tmp/user.csv
+
+查询记录：
+db.user.find() 显示所有行，默认每次显示20输入it会显示下面的行
+db.user.find({条件},{定义显示的字段  字段:1显示 字段:0不显示})    条件可以是正则
+db.user.find({},{}).limit()  
+db.user.find({},{}).skip(1略过第一行 2略过前两行)
+db.user.find({},{}).sort()
+db.uesr.find({},{}).sort({uid:1})升序
+db.user.find({},{}).sort({uid:-1})降序
+
+条件判断：
+$in        where uid in (1,6,9)
+$nin
+$or
+
+db.user.find({uid:{$in:[1,6,9]}})             显示1,6,9的字段
+db.user.find({uid:{$in:[1,6,9]}},{_id:0,name:1,uid:1})
+db.user.find({uid:{$nin:[1,6]}},{_id:0})              不显示1,6的字段
+db.user.find({$or[{name:"root"},{uid:1}]})    显示name字段是root的或者uid字段是1的
+
+$lt   <
+$lte  <=
+$gt   >
+$gte  >=
+$ne   !=
+
+db.user.find({uid:{$gte:10,$lte:40}},{_id:0,name:1,uid:1})
+
+正则表达式：
+
+db.user.find({name:/^a/})
 
 
+插入字段：
+save        当集合不存在的时候创建并写入文档   指定_id字段的值的时候，不存在的时候插入，存在的时候覆盖以前的值
+insert      当集合不存在的时候创建并写入文档   指定_id字段的值的时候，不存在的时候插入，存在的时候放弃写入
+insertMany  写入多行文档
+
+db.user.save({_id:7,name:"tom",age:"10"})
+db.user.find()
+db.user.save({_id:7,name:"jim",age:"20"})
+db.user.find()
+db.user.insert({_id:7,name:"jerry",age:"30"})
+db.user.insertMany([{name:"xiaojiu2"},{name:"laoshi3",age:18}])
+
+修改字段：
+update  ({条件},{修改的字段})
+
+db.user.update({name:"adm"},{$set:{pass:"AAA"}})   修改pass一个字段
+db.user.update({name:"/^r/"},{$set:{pass:"FFF"},false,true)    修改name字段中以r开头的pass字段的多个值
+db.user.update({name:"sync"},{$unset:{pass:1}})    删除pass一个字段
+
+1.数组：      
+db.user.insert({name:"bob",likes:["a","b","c","d","e"]})
+db.user.find({name:"bob"},{_id:0})
+默认删除第一个与条件匹配的
+db.user.update({name:"bob"},{$pop:{likes:1}})         删除数组末尾的一个字符
+db.user.update({name:"bob"},{$pop:{likes:-1}})        删除数组开头的一个字符
+db.user.update({name:"bob"},{$pull:{likes:"b"}})      删除数组中指定的字符
+db.user.update({name:"bob"},{$push:{likes:"F"}})      向数字中添加新字符
+db.user.update({name:"bob"},{$addToSet:{likes:"F"}})  存在时不添加
+
+db.user.update({name:"bin"},{$inc:{uid:2}})    设置字段值自加2
+db.user.update({name:"bin"},{$inc:{uid:-1}})   负数时自减1
 
 
+remove()     删除文档时不删除索引
+drop()       删除集合的同时删除索引
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+db.user.remove({})                删除所有
+fb.user.remove({name:"sync"})     删除条件的文档
 
 
 
