@@ -50,9 +50,9 @@
       锁的作用：解决对表的并发访问冲突问题(select delete insert update)
                如：update t1 set name="tom" where name="lucy"
                update t1 set name="bob" where name="lucy" 两个人同时修改会发生冲突  
-      锁类型：读锁      共享锁
-               写锁      互斥锁  
-
+      锁类型：读锁      共享锁      lock tables usertab read;   给usertab加读锁
+               写锁      互斥锁      lock tables usertab write;  给usertab加写锁
+                              unlock tables;   解锁
 7.建表时如何决定表使用那种存储引擎
  被执行写操作多的表适合使用innodb存储引擎，并发访问量大
  被读操作多的表时和myisam存储引擎，节省系统资源

@@ -1,0 +1,209 @@
+
+
+MongoDB
+一、介绍：
+介于关系数据库和非关系数据库之间的产品
+– 一个基于分布式文件存储的数据库。
+– 由C++语言编写。旨在为WEB应用提供可扩展的高性能数据存储解决方案。
+– MongoDB 将数据存储为一个文档,数据结构由键值(key=>value)对组成。
+– MongoDB 文档类似于 JSON 对象。字段值可以包含其他文档,数组及文档数组。
+
+二、特点：
+– 安装简单
+– 面向文档存储,操作比较简单容易
+– 支持丰富的查询表达
+– 可以设置任何属性的索引
+– 支持主流编程语言 ruby|pythen|java|php|c++
+– 支持副本集,分片
+
+三、搭建MongoDB服务器
+
+1.装包：
+tar -xf mongodb-linux-x86_64-rhel70-3.6.3.tgz
+mkdir /usr/local/mongodb
+cp -r bin /usr/local/mongodb/
+cd /usr/local/mongodb/
+mkdir etc
+mkdir log
+mkdir -p data/db
+echo "export PATH=/usr/local/mongodb/bin:$PATH" >> /etc/profile
+
+
+
+2.配置文件
+手动创建服务主配置文件
+vim mongodb.conf
+logpath=/usr/local/mongodb/log/mongodb.log
+logappend=true                       #追加的方式记录日志信息
+dbpath=/usr/local/mongodb/data/db
+fork=true                            #守护进程方式运行
+
+启动服务
+• 启动服务
+– ]# ./bin/mongod -f /usr/local/mongodb/etc/mongodb.conf
+    起一个别名 alias mongodbstart='mongod -f /usr/local/mongodb/etc/mongodb.conf'
+• 查看进程
+– ]# ps -C mongod
+• 查看端口
+– ]# netstat -utnalp | grep :27017
+
+连接服务
+• 本地连接,默认没有密码
+[root@bogon ~]# /usr/local/mongodb/bin/mongo
+MongoDB shell version v3.6.3
+connecting to: mongodb://127.0.0.1:27017
+MongoDB server version: 3.6.3
+......
+> show dbs //显示已有的库
+admin 0.000GB
+config 0.000GB
+local 0.000GB
+> exit #断开连接
+bye
+[root@bogon ~]#
+
+停止服务：
+mongod --dbpath=/usr/local/mongodb/data/db --shutdown
+   可以起一个别名
+ alias mongodbshutdown='mongod --dbpath=/usr/local/mongodb/data/db --shutdown'
+ alias mongodbrestart='mongod --dbpath=/usr/local/mongodb/data/db --shutdown ; mongo --host 192.168.4.61--port 27020'
+ alias mongodbportstart='mongo --host 192.168.4.61 --port 27020'
+
+
+  alias mongodbrestart='mongod --dbpath=/usr/local/mongodb/data/db --shutdown ; mongo --host 192.168.4.62--port 27021'
+  alias mongodbportstart='mongo --host 192.168.4.62 --port 27021'
+
+
+四、MongoDB基本使用
+
+1.常用命令
+库管理命令: 查看 创建 切换 删除
+– show dbs 查看已有的库
+– db       显示当前所在的库
+– use 库名   切换库,若库不存在的话 会自动延时创建
+– show collections 或 show tables 查看库下已有的
+集合
+– db.dropDatabase()   删除当前所在的库
+
+   数据库名可以是满足以下条件的任意UTF-8字符串。
+– 不能是空字符串("")。
+– 不得含有' '(空格)、.、$、/、\和\0 (空字符)。
+– 应全部小写。
+– 最多64字节。
+
+集合管理命令:查看 创建 删除
+– show collections 或 show tables  #查看集合
+– db.集合名.drop()   #删除集合
+– db.集合名.save({'',''})   #创建集合,集合不存在时,创建并添加文档 
+> db.user.save({'name':'bob','age':'21'})
+WriteResult({ "nInserted" : 1 })
+
+文档管理命令: 查看 添加 删除
+– db.集合名.find()
+– db.集合名.count()
+– db.集合名.insert({“name”:”jim”})
+– db.集合名.find(条件) 
+– db.集合名.findOne() 返回查询一条文档
+– db.集合名.remove({}) #删除所有文档
+– db.集合名.remove({条件}) #删除与条件匹配的所有文档
+
+2.基本数据类型
+字符串：UTF-8字符串都可以表示位字符串类型   
+布尔：布尔值类型有两个true或false{"x"=true|false}
+空：null   用于表示空值或者不存在的字符{"x"=null}
+数组：数据类表或数据集可以有多个值      db.t1.save({name:"kenji",email:                     ["kenji@qq.com","kenji@163.com","kenji@126.com","kenji@sina.com"]})                                                                                          
+代码：
+小数值：shell默认使用64位浮点型数值.{"x":3.14}或{"x":4}.
+整数：可以使用NumberInt(4>字节)
+
+正则表达式：
+內嵌文档：db.t1.save({book:{zuozhe:"dmy",bname:""}})
+对象ID：对象id是一个12字节的字符串  
+       db.t1.save({stunum:ObjectId(),name:"yaya",class:"nsd1801"})
+二进制数据：
+代码：查询和文档中可包含的
+     db.t1.save({lname:"html",codescript:function(){/* 代码 */}})
+如：  db.t1.save({lname:"heml",codescript:function(){/*<html><h1>abc</h1></html>*/}})
+
+3.数据导入导出
+
+备份数据：mongodump 完全备份
+    mongodump --host 192.168.4.61 --port 27020  (-d bbsdb)   不指定库备份所有    (-o  /root/bbsdb 指定备份目录)   在那执行命令，备份在执行命令的文件夹里
+
+恢复数据：mongorestore --host 192.168.4.61 --port 27020 -d 库名  备份文件目录
+
+导出数据：
+mongoexport --host 192.168.4.61 --port 27020 -d xiaxiapi -c t1 -f name --type=csv -o /root/plj1.csv
+
+cat /root/plj1.csv  
+
+mongoexport --host 192.168.4.61 --port 27020 -d xiaxiapi -c t1 -f name,age -q '{name:"tom"}' --type=csv -o /root/plj2.csv
+
+mongoexport --host 192.168.4.61 --port 27020 -d xiaxiapi -c t1 -f name --type=json -o /root/plj3.json
+
+mongoexport --host 192.168.4.61 --port 27020 -d xiaxiapi -c t1 -f name,age -q '{name:"tom"}' --type=json -o /root/plj4.json
+
+
+
+
+
+导入数据：
+mongoimport --host 192.168.4.61 --port 27020 -d xiaxiapi -c t1 --type=json < /root/plj3.json
+
+
+mongoimport --host 192.168.4.61 --port 27020 -d xiaxiapi -c t1 --type=csv --headerline < /root/plj1.csv
+   去掉第一行的内容，剩下的内容追加到表下。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

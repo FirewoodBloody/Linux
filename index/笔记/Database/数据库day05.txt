@@ -160,19 +160,48 @@
                       --password 密码
                       --databases="库名"  库名表示方式"库名1 库名2 库名3" "库名.表名"
                       --no-timestamp  不会生成以当前时间日期的子目录名了，
-                             常用格式：innobackupex --user root --password 123456 --databases="mysql sys  performance_schema"
+                             常用格式：innobackupex --user(=)root --password(=)123456 --databases="mysql sys  performance_schema"
                              
       3.2.4完全备份与恢复：innobackupex 命令    
-            3.2.4.1完全备份：innobackupex --user root --password 123456 --databases="mysql sys  performance_schema" /allbak(备份的时候指定的)  --no-timestamp    
+            3.2.4.1完全备份：innobackupex --user(=)root --password(=)"123456" --databases="mysql sys  performance_schema" /allbak(备份的时候指定的)  --no-timestamp    
             3.2.4.2完全恢复：rm -rf /var/lib/mysql
                         mkdir /var/lib/mysql
-                        innobackupex --user root --password 123456 --copy-back /allbak
+                        innobackupex --user(=)root --password(=)"123456" --copy-back /allbak
                         chown -R mysql:mysql /var/lib/mysql
                         systemctl restart mysqld
                         mysql -uroot -p123456
       3.2.5增量备份与恢复：innobackupex 命令
       3.2.6增量备份的工作过程：innobackupex 命令
       3.2.7恢复完全备份中的当表：
+
+
+先有一次完全备份   存放/fullbak
+
+innobackupex --user(=)oot --password(=)"123456" --databases="mysql sys  performance_schema" /fullbak --no-timestamp    
+
+
+
+
+执行增量备份  存放目录/new1bak
+
+innobackupex --user(=)root --password(=)"123456" --databases="mysql sys  performance_schema" --incremental /new1dir 
+ --incremental-basefir=/fullbak    --no-timestamp    
+
+执行增量备份  存放目录/new2bak
+
+innobackupex --user(=)root --password(=)"123456" --databases="mysql sys  performance_schema" --incremental /new2dir 
+ --incremental-basefir=/new1bak    --no-timestamp    
+
+
+
+
+
+     事务日志文件
+     LSN	日志文件
+     
+      增量备份的工作过程：
+     每一个备份目录下都有一个备份日志
+    cat /备份目录名/xtrabackup_checkpoints 
 4.
 
 

@@ -1,0 +1,240 @@
+
+
+nosql 不仅仅是sql
+
+泛指非关系型数据库
+不需要预先定义数据存储结构
+表的每条记录都可以有不同的类型和格式
+
+
+Redis  Remode Dictionary 
+
+使用C语言编写的，遵守BSD的开原软件
+高性能的分布式内存数据库
+
+
+支持数据持久化，可以把内存里数据保存到硬盘中
+不仅仅支持key/values类型的数据，同时还支持list hash set zset 类型
+主持master-slave(主从同步) 模式数据备份
+
+
+
+搭建redis服务：
+
+LNMP+Redis
+把网站服务
+
+在主机192.168.4.53部署redis服务
+在主机192.168.4.56部署LNMP服务
+
+
+set keyname keyvalue
+get keyname
+select 1
+keys *
+keys a?
+exits keyname
+ttl keyname
+type keyname
+move keyname dbname
+expire keyname 10
+
+
+配置文件解析1：
+
+cp /etc/redis/6379.conf /root
+
+# 1k => 1000 bytes
+# 1kb => 1024 bytes
+# 1m => 1000000 bytes
+# 1mb => 1024*1024 bytes
+# 1g => 1000000000 bytes
+# 1gb => 1024*1024*1024 bytes
+
+bind 127.0.0.1 192.168.4.53
+
+port 6379
+
+tcp-backlog 511    tcp连接的队列长度
+
+timeout 0    连接超时的时间   0代表永不超时
+
+tcp-keepalive 300  多长时间查一次在不在线
+
+daemonize yes(no)  以守护进程的方式运行(以非守护进程的方式运行)
+
+supervised no
+
+loglevel notice  日志级别(向日志文件里记录那些信息)
+# warning (only very important / critical messages are logged)
+
+logfile /var/log/redis_6379.log  
+  
+databases 16 设置数据库的个数(0-15)
+
+ 565 # volatile-lru -> Evict using approximated LRU among the keys with an expire set.
+ 566 # allkeys-lru -> Evict any key using approximated LRU.
+ 567 # volatile-lfu -> Evict using approximated LFU among the keys with an expire set.
+ 568 # allkeys-lfu -> Evict any key using approximated LFU.
+ 569 # volatile-random -> Remove a random key among the ones with an expire set.
+ 570 # allkeys-random -> Remove a random key, any key.
+ 571 # volatile-ttl -> Remove the key with the nearest expire time (minor TTL)
+ 572 # noeviction -> Don't evict anything, just return an error on write operations.
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+cd phpredis-2.2.4
+phpize
+./configure --with-php-config=/usr/bin/php-config
+make && make install
+Installing shared extensions:     /usr/lib64/php/modules/
+vim /etc/php.ini
+ 728 extension_dir = "/usr/lib64/php/modules/"
+ 729 ; On windows:
+ 730 extension = "redis.so"
+:wq
+php -m | grep -i redis
+
+wxsro
+
+
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ SECURITY 设置密码   # requirepass foobared
+    requirepass 密码
+
+
+]#redis-cli
+:6379>ping
+(error)NOAUTH Authentication required
+:6379>auth 123456
+OK
+:6379>ping
+PANG
+:6379>quit
+
+]#redis-cli -a 123456
+:6379>ping
+PANG
+
+
+设置连接密码后如何使用脚本停止redis服务
+/etc/init.d/redis_6379 stop
+报错
+
+vim /etc/init.d/redis_6379 
+ 36     stop)
+            A=`grep "^requirepass" /etc/redis/6379.conf | awk '{print $2}'`
+            if [ ! -z $A ]
+             PID=$(cat $PIDFILE)
+              echo "Stopping ..."
+              $CLIEXEC -p $REDISPORT -a $A shutdown
+              while [ -x /proc/${PID} ]
+              do
+                 echo "Waiting for Redis to shutdown ..."
+                  sleep 1
+              done   
+              echo "Redis stopped"
+ 37         elif [ ! -f $PIDFILE ]
+ 38         then
+ 39             echo "$PIDFILE does not exist, process is not running"
+ 40         else
+ 41          PID=$(cat $PIDFILE)
+ 42             echo "Stopping ..."
+ 43             $CLIEXEC -p $REDISPORT  shutdown
+ 44             while [ -x /proc/${PID} ]
+ 45             do
+ 46                 echo "Waiting for Redis to shutdown ..."
+ 47                 sleep 1
+ 48             done   
+ 49             echo "Redis stopped"
+ 50         fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

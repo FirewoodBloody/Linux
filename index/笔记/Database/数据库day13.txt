@@ -1,0 +1,391 @@
+
+
+
+一、redis复制 1 2 3 
+
+
+bind 192.168.4.61(62,63)
+port 6379 (6061,6062,6063)
+
+>info replicaton
+配置从库：
+>slaveof 192.168.4.61 6061
+>info replication
+将从库切换成主库(反客为主)
+>info no one  (手动)
+启动哨兵模式     (自动)
+vim /etc/sentinel.conf
+sentinel monitor redis51 192.168.4.51 6061 1
+:wq
+redis-sentinel /etc/sentinel.conf
+
+sentinel monitor 主机名 ip地址 端口 票数
+主机名:自定义
+IP地址:master主机的IP地址
+端 口:master主机 redis服务使用的端口
+票 数:主库宕机后, 票数大于1的主机被升级为主库
+
+
+配置带验证的主从复制
+1.给主库设置连接密码
+配置master主机
+– 设置连接密码 ,启动服务,连接服务
+[root@redis51 ~]# sed -n '70p;501p' /etc/redis/6379.conf
+bind 192.168.4.51
+requirepass 123456 //密码
+[root@redis51 ~]#
+[root@redis51 ~]# /etc/init.d/redis_6379 start
+Starting Redis server...
+[root@redis51 ~]# redis-cli -h 192.168.1.111 -a 123456 -p 6379
+192.168.4.51:6379>
+
+2.给从库设置连接密码
+配置slave主机
+– 指定主库IP ,设置连接密码,启动服务
+[root@redis52 ~]# sed -n '70p;282p;289p' /etc/redis/6379.conf
+bind 192.168.4.52
+slaveof 192.168.4.51 6379 //主库IP 与端口
+masterauth 123456 //主库密码
+[root@redis52 ~]#
+[root@redis52 ~]# /etc/init.d/redis_6379 start
+Starting Redis server...
+[root@redis52 ~]# redis-cli -h 192.168.4.52
+192.168.4.52:6379> INFO replication
+# Replication
+role:slave
+master_host:192.168.4.51
+master_port:6379
+
+
+二、redis持久化
+1.RDB   Reids DataBase
+          数据持久化方式之一
+          在指定时间间隔内,将内存中的数据集快照写入硬盘。
+          术语叫Snapshot快照。
+          恢复时,将快照文件直接读到内存里。
+
+手动立刻存盘
+– > save   //阻塞写存盘
+– > bgsave //不阻塞写存盘
+
+vim /etc/redis/6061.conf
+197 ################################ SNAPSHOTTING  ################################
+217 #   save ""                          禁用RDB
+219 save 900 1                           900s内且有1次修改存盘
+220 save 300 10                          300s内且有10次修改存盘
+221 save 60 10000                        60s内且有10000次修改存盘
+236 stop-writes-on-bgsave-error yes      bgsave出错停止写操作，对数据一致性
+242 rdbcompression yes                   是否压缩
+251 rdbchecksum yes                      是否校验(使用crc16算法)
+254 dbfilename dump.rdb                  文件名
+:wq
+
+备份数据
+cp  /var/lib/redis/6061/dump.rdb   /root/
+
+恢复数据 把备份的dump.rdb文件拷贝回数据库目录,重启redis服务
+cp   /root/dump.rdb    /var/lib/redis/6061/  
+/etc/redid/redis_端口 start
+
+watch -n 1 ls /var/lib/redis/6061/     监控目录，1s看一回，有新文件产生就加载显示
+
+
+RDB优点
+–持久化时,Redis服务会创建一个子进程来进行持久化,会先将数据写入到一个临时文件中,待持久化过程都结束了,再用这个临时文件替换上次持久化好的文件;整个过程中主进程不做任何IO操作,这就确保了极高的性能。
+–如果要进程大规模数据恢复,且对数据完整行要求不是非常高,使用RDB比AOF更高效。
+RDB的缺点
+–意外宕机,最后一次持久化的数据会丢失。
+
+
+
+2.AOF  Append Only File  
+         只追加操作的文件
+         记录redis服务所有写操作。
+         不断的将新的写操作,追加到文件的末尾。
+         使用cat 命令可以查看文件内容
+
+
+vim /etc/redis/6061.conf
+653 ############################## APPEND ONLY MODE ###############################
+673 appendonly no                      启动aof，默认no
+677 appendfilename "appendonly.aof"    文件名
+702 # appendfsync always               有新的操作就立即记录，性能差，完整性好
+703 appendfsync everysec               每秒记录一次，有时会失去1s的数据
+704 # appendfsync no                   从不记录
+
+
+修复AOF文件,
+– 把文件恢复到最后一次的正确操作
+[root@redis53 6379]# redis-check-aof --fix appendonly.aof
+0x
+83: Expected \r\n, got: 6166
+AOF analyzed: size=160, ok_up_to=123, diff=37
+This will shrink the AOF from 160 bytes, with 37 bytes, to 123
+bytes
+Continue? [y/N]: y
+Successfully truncated AOF
+
+
+• 备份数据
+备份appendonly.aof 文件到其他位置
+cp  数据库目录/appendonly.aof  备份目录/
+• 恢复数据
+把备份的appendonly文件拷贝回数据库目录,重启redis服务
+cp  备份目录/appendonly.aof  数据库目录/
+/etc/redid/redis_端口 start
+
+
+日志重写(日志文件会不断增大),何时会触发日志重写?
+redis会记录上次重写时AOF文件的大小,默认配置是
+当aof文件是上次rewrite后大小的1倍且文件大于64M
+时触发。
+vim /etc/redis/6061.conf
+744 auto-aof-rewrite-percentage 100
+745 auto-aof-rewrite-min-size 64mb
+
+AOF优点
+– 可以灵活的设置同步持久化appendfsync alwayls 或异步持久化appendfsync everysec
+– 掉机时,仅可能丢失1秒的数据 
+AOF的缺点
+– AOF文件的体积通常会大于RDB文件的体积。执行fsync策略时的速度可能会比RDB 慢。
+
+
+
+
+三、redis数据类型   
+1.string字符串
+1.1> set key value [EX seconds] [PX milliseconds] [NX|XX]
+– 设置key及值,过期时间可以设置为秒或毫秒为单位
+– nx只有key不存在,才对key进行操作
+– xx只有key已存在,才对key进行操作
+1.2> setrange key offset value 从偏移量开始复写key的特定位的值
+如:  set first "hello world"
+    setrange first 6 “Redis”  //改写为hello Redis
+1.3> strlen key   统计字串长度
+如:  set first "hello world"
+    strlen first              //总共有11个字符
+1.4> append key value    字符存在则追加,不存在则创建key及value
+          返回值为key的长度
+        >append myname jacob
+1.5>setbit key offset(位) value
+– 对key所存储字串,设置或清除特定偏移量上的位(bit)
+– Value值可以为1或0,offset为0~2^32之间
+– key不存在,则创建新key
+>setbit bit 0 1  第0位为1
+>setbit bit 1 0  第1位为0
+1.6>bitcount key    统计字串中被设置为1的比特位数量
+>setbit bits 0 1      //0001
+>setbit bits 3 1      //1001
+>bitcount bits        //结果为2
+记录网站用户上线频率,如用户A上线了多少天等类似的数据
+如用户在某天上线,则使用setbit,以用户名为key,将网站上线日为offset,并在该offset上设置1,最后计算用户总上线次数时,使
+用bitcount用户名即可
+这样,即使网站运行10年,每个用户仅占用10*365比特位即456字节即可
+>setbit peter 100 1   //网站上线100天用户登录了一次
+>setbit peter 105 1   //网站上线105天用户登录了一次
+>bitcount peter
+1.7>decr key   将key中的值减1,key不存在则先初始化为0,再减1
+>set test 10
+>decr test
+1.8>decrby key decrement   将key中的值,减去decrement
+>set count 100
+>decrby count 20
+1.9>get key    返回key所存储的字符串值
+                   如果key不存在则返回特殊值nil
+                   如果key的值不是字串,则返回错误,get只能处理字串
+1.10>getrange key start end   返回字串值中的子字串,截取范围为start和end
+                                       负数偏移量表述从末尾计数,-1表示最后一个字符,-2表示倒数第二个字符
+如：     
+>set first “hello,the world”
+>getrange first -5 -1
+>getrange first 0 4
+1.11>incr key     将key的值加1,如果key不存在,则初始为0后再加1
+                       主要应用为计数器
+如：
+>set page 20
+>incr page
+1.12>incrby key increment     将key的值增加increment
+1.13>incrbyfloat key increment  为key中所储存的值加上浮点数增量 increment  (小数)
+1.14>mget key [key...]      一次获取一个或多个key的值,空格分隔,<具有原子性>
+1.15>mset key value [key value ...]   一次设置多个key及值,空格分隔,<具有原子性>
+
+
+
+
+
+2.list列表    Redis的list是一个字符队列
+                先进后出(先存入的数据最后一个输出)
+                一个key可以有多个值
+2.1>lpush key value [value...]   将一个或多个值value插入到列表key的表头
+                Key不存在,则创建key
+                >lpush list a b c //list1值依次为c b a等同于lpush list a; lpush list b; lpush list c
+2.2>lrange key start stop      从开始位置读取key的值到stop结束
+   >lrange list 0 2          //从0位开始,读到2位为止
+   >lrange list 0 -1         //从开始读到结束为止
+   >lrange list 0 -2         //从开始读到倒数第2位值
+2.3>lpop key    	移除并返回列表头元素数据,key不存在则返回nil
+    >lpop list    //删除表头元素,可以多次执行
+2.4>llen key       返回列表key的长度
+2.5>lindex key index   返回列表中第index个值
+    如lindex key 0 ; lindex key 2; lindex key -2
+2.6>lset key index value   将key中index位置的值修改为value
+    >lset list 3 test      //将list中第3个值修改为test
+2.7>rpush key value [value...]   将value插入到key的末尾
+     >rpush list3 a b c    //list3值为a b c
+     >rpush list3 d        //末尾插入d
+2.8>rpop key           删除并返回key末尾的值
+      >rpop list3 d        //删除末尾的值d
+
+
+
+
+
+
+
+3.hash列表     Redis hash是一个string类型的field和value的映射表
+                 一个key可对应多个field,一个field对应一个value
+                 将一个对象存储为hash类型,较于每个字段都存储成
+             string类型更能节省内存
+3.1>hset key field value     将hash表中field值设置为value
+   如：
+  >hset site google 'www.g.cn‘
+  >hset site baidu 'www.baidu.com'
+3.2>hget key filed     获取hash表中field的值
+   如：
+   >hget site google
+3.3hmset key field value [field value...]   同时给hash表中的多个field赋值
+   >hmset site google www.g.cn baidu www.baidu.com 
+3.4>hvals key      返回hash表中所有filed的值
+    >hvals key
+3.5>hdel key field [field...]   删除hash表中多个field的值,不存在则忽略
+     >hdel site google baidu
+
+
+
+
+4.其他操作指令：
+4.1>del key [key...]  删除一个或多个key
+4.2>exists key    测试一个key是否存在
+4.3>expire key seconds   设置key的生存周期
+4.4>persist key   设置key永不过期
+4.5>ttl key    查看key的生存周期
+4.6>keys 匹配    找符合匹配条件的key,特殊符号用\屏蔽
+如：
+>keys *           //显示所有key
+>keys h?llo       //匹配hello,hallo,hxllo等
+>keys h*llo       //匹配hllo或heeello等
+>keys h[ae]lo     //匹配hello和hallo
+4.7>flushall     清空所有数据
+4.8>select id    选择数据库,id用数字指定,默认数据库为0
+如：
+>select 0
+>select 2
+4.9>move key db_id     将当前数据库的key移动到db_id数据库中
+如：
+>move key 1      //将key移动到1数据库中
+4.10>rename key newkey    给key改名为newkey,newkey已存在时,则覆盖其值
+4.11>renamenx key newkey     仅当newkey不存在时,才将key改名为newkey
+4.12>sort key     对key进行排序
+如：
+>lpush cost 1 8 7 2 5
+>sort cost         //默认对数字排序,升序
+>sort cost desc    //降序
+>lpush test “about” “site” “rename”
+>sort test alpha   //对字符排序
+>sort cost alpha limit 0 3   //排序后提取0-3位数据
+>sort cost alpha limit 0 3 desc
+>sort cost STORE cost2 //对cost排序并保存为cost2
+4.13>type key     返回key的数据类型
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+key          field         values
+运维之道        作者              丁大神
+                 版本号            16
+                 发行日期          2018-01-25
+                 价格              3
+                 评价              价格便宜，内容还行
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

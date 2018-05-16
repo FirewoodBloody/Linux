@@ -1,0 +1,371 @@
+
+
+
+ip地址        端口        eth0/lo            日志文件名
+192.168.4.51  6051        都可以接受连接请求      redis51.log
+192.168.4.52  6052       都可以接受连接请求       redis52.log
+192.168.4.53  6053        都可以接受连接请求     redis53.log
+192.168.4.54  6054       都可以接受连接请求       redis54.log
+192.168.4.55  6055        都可以接受连接请求      redis55.log
+192.168.4.56  6056        都可以接受连接请求      redis56.log
+
+环境准备：
+1.在6台redis服务器上运行服务，按照如下要求修改配置文件后重启redis服务。
+vim /etc/redis/6379.conf
+ bind 192.168.4.(51,52,53,54,55,56)
+137 daemonize yes  以守护进程运行
+159 pidfile /var/run/redis_56.pid
+803  ########REDIS CLUSTER###########
+815 cluster-enabled yes   #去掉
+823 cluster-config-file nodes-6056.conf   #集群配置文件
+829 cluster-node-timeout 5000
+
+redis-cli  -h192.168.4.(51,52,53,54,55,56) -p(6051,6052,6053,6054,6055,6056) shutdown
+
+
+装包：  在执行创建集群命令的主机上安装ruby软件包
+yum -y install gcc gcc-c++ ruby rubygems 
+tar -xf redisredis-4.0.8.tar.gz
+yum -y install ruby-devel.x86_64 0:2.0.0.648-30.el7 
+
+安装ruby连接redis 接口程序 gem
+
+gem install  redis-3.2.1.gem  
+
+
+生成创建集群的脚本
+ls /root/redis-4.0.8/src/redis-trib.rb   
+cp redis-4.0.8/src/redis-trib.rb /usr/local/bin/
+
+创建集群： --replicas (给几个主配置几个从)
+redis-trib.rb create --replicas 1 192.168.4.51:6051 192.168.4.52:6052 192.168.4.53:6053 192.168.4.54:6054 192.168.4.55:6055 192.168.4.56:6056
+
+[ERR]Node 192.168.4.54:6054 is not empty.Either the node already knows other nodes(check with CLUSTER NODES) or contains some key in database 0.
+
+rm -rf /var/lib/redis/(6051,6052,6053,6054,6055,6056)/*
+
+192.168.4.54:6054>flushall
+OK
+192.168.4.54:6054>keys *
+(empty list or set)
+192.168.4.54:6054>flushall
+OK
+192.168.4.54:6054>save
+OK
+192.168.4.54:6054>quit
+
+[ERR]Node 192.168.4.53:6053 is not configured as a cluster node.  不是集群主机
+
+
+
+槽的个数：16384
+
+客户端访问集群 key/values  使用crc16 key = x % 总槽数
+如：key/values x=99
+  crc16 key = y % 16384 = 5609 
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+]# redis-trib.rb create --replicas 1 192.168.4.51:6051 192.168.4.52:6052 192.168.4.53:6053 192.168.4.54:6054 192.168.4.55:6055 192.168.4.56:6056
+>>> Creating cluster
+>>> Performing hash slots allocation on 6 nodes...
+Using 3 masters:
+192.168.4.51:6051
+192.168.4.52:6052
+192.168.4.53:6053
+Adding replica 192.168.4.55:6055 to 192.168.4.51:6051
+Adding replica 192.168.4.56:6056 to 192.168.4.52:6052
+Adding replica 192.168.4.54:6054 to 192.168.4.53:6053
+M: fb6a6db4f64287cdd7d8565213c33c632352f460 192.168.4.51:6051
+   slots:0-5460 (5461 slots) master
+M: 60896f3af092c710666132ff1d1422759e1ae16a 192.168.4.52:6052
+   slots:5461-10922 (5462 slots) master
+M: 09859fa22ee355fd353e238ad40a104782064755 192.168.4.53:6053
+   slots:10923-16383 (5461 slots) master
+S: 315fbf254fd243feb6948fae5f211c5691e880cf 192.168.4.54:6054
+   replicates 09859fa22ee355fd353e238ad40a104782064755
+S: aa6f7149159d094d59ead9f135b6274b6291f083 192.168.4.55:6055
+   replicates fb6a6db4f64287cdd7d8565213c33c632352f460
+S: a58b936fde475ae296cd4d089c9849739a811ab4 192.168.4.56:6056
+   replicates 60896f3af092c710666132ff1d1422759e1ae16a
+Can I set the above configuration? (type 'yes' to accept): yes
+>>> Nodes configuration updated
+>>> Assign a different config epoch to each node
+>>> Sending CLUSTER MEET messages to join the cluster
+Waiting for the cluster to join....
+>>> Performing Cluster Check (using node 192.168.4.51:6051)
+M: fb6a6db4f64287cdd7d8565213c33c632352f460 192.168.4.51:6051
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+M: 09859fa22ee355fd353e238ad40a104782064755 192.168.4.53:6053
+   slots:10923-16383 (5461 slots) master
+   1 additional replica(s)
+S: 315fbf254fd243feb6948fae5f211c5691e880cf 192.168.4.54:6054
+   slots: (0 slots) slave
+   replicates 09859fa22ee355fd353e238ad40a104782064755
+S: a58b936fde475ae296cd4d089c9849739a811ab4 192.168.4.56:6056
+   slots: (0 slots) slave
+   replicates 60896f3af092c710666132ff1d1422759e1ae16a
+S: aa6f7149159d094d59ead9f135b6274b6291f083 192.168.4.55:6055
+   slots: (0 slots) slave
+   replicates fb6a6db4f64287cdd7d8565213c33c632352f460
+M: 60896f3af092c710666132ff1d1422759e1ae16a 192.168.4.52:6052
+   slots:5461-10922 (5462 slots) master
+   1 additional replica(s)
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+
+]#cat /
+
+
+每台redis服务器在本机登陆查看集群信息：
+]#redis-cli -c -h 192.168.4.51 -p 6051   *(-c 连接集群上的主机)
+192.168.4.51:6051> cluster info       查看集群信息
+192.168.4.51:6051> cluster nodes      查看集群中的节点信息
+192.168.4.51:6051> quit               退出
+
+
+测试集群：
+]#redis-cli -c -h 192.168.4.51 -p 6051
+192.168.4.51:6051>set name jim [crc16(name) % 16384 = 329]
+
+
+半数和半数以上的主库挂掉后，不能正常工作
+
+
+集群选举的测试：
+停止某个主库的redis服务 ，对应的从库会自动升级为主
+停止的那个主库重新启动就成为 对应从库的从库
+
+
+向集群里添加新节点主机 192.168.4.51
+
+1.在主机57运行redis服务(要做对应的集群配置)
+   19  tar -xf redis-4.0.8.tar.gz 
+   20  cd redis-4.0.8/
+   21  ls
+   22  make && make install
+   23  cd utils/
+   24  ls
+   25  sh install_server.sh 
+   26  /etc/init.d/redis_6057 stop
+   27  vim /etc/redis/6057.conf 
+   28  /etc/init.d/redis_6057 start
+   29  ss -aunplt | grep 6057
+   30  rm -rf /etc/yum.repos.d/*.repo
+   31  rm -rf /etc/yum.repos.d/*
+   32  vim /etc/yum.repos.d/dvd.repo
+   33  yum repolist
+   34  rpm -q ruby
+   35  ls
+   36  cd ..
+   37  ls
+   38  cd ..
+   39  ls
+   40  yum -y install ruby rubygems ruby-devel-2.0.0.648-30.el7.x86_64.rpm 
+   41  gem install redis-3.2.1.gem 
+   42  cp redis-4.0.8/src/redis-trib.rb /usr/local/bin/
+
+
+2.在主机51添加到集群里
+
+[root@mysql57 ~]# redis-trib.rb add-node 192.168.4.57:6057 192.168.4.51:6051
+>>> Adding node 192.168.4.57:6057 to cluster 192.168.4.51:6051
+>>> Performing Cluster Check (using node 192.168.4.51:6051)
+S: fb6a6db4f64287cdd7d8565213c33c632352f460 192.168.4.51:6051
+   slots: (0 slots) slave
+   replicates aa6f7149159d094d59ead9f135b6274b6291f083
+S: 315fbf254fd243feb6948fae5f211c5691e880cf 192.168.4.54:6054
+   slots: (0 slots) slave
+   replicates 09859fa22ee355fd353e238ad40a104782064755
+S: a58b936fde475ae296cd4d089c9849739a811ab4 192.168.4.56:6056
+   slots: (0 slots) slave
+   replicates 60896f3af092c710666132ff1d1422759e1ae16a
+M: aa6f7149159d094d59ead9f135b6274b6291f083 192.168.4.55:6055
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+M: 09859fa22ee355fd353e238ad40a104782064755 192.168.4.53:6053
+   slots:10923-16383 (5461 slots) master
+   1 additional replica(s)
+M: 60896f3af092c710666132ff1d1422759e1ae16a 192.168.4.52:6052
+   slots:5461-10922 (5462 slots) master
+   1 additional replica(s)
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+>>> Send CLUSTER MEET to node 192.168.4.57:6057 to make it join the cluster.
+[OK] New node added correctly.
+
+
+加入集群默认为主库
+
+
+[root@mysql57 ~]# redis-trib.rb check 192.168.4.57:6057  检查集群中主机的状态
+>>> Performing Cluster Check (using node 192.168.4.57:6057)
+M: 559e1c7692d35a0bf0493ab826bdccbf1a566c5f 192.168.4.57:6057
+   slots: (0 slots) master
+   0 additional replica(s)
+S: 315fbf254fd243feb6948fae5f211c5691e880cf 192.168.4.54:6054
+   slots: (0 slots) slave
+   replicates 09859fa22ee355fd353e238ad40a104782064755
+S: fb6a6db4f64287cdd7d8565213c33c632352f460 192.168.4.51:6051
+   slots: (0 slots) slave
+   replicates aa6f7149159d094d59ead9f135b6274b6291f083
+M: 09859fa22ee355fd353e238ad40a104782064755 192.168.4.53:6053
+   slots:10923-16383 (5461 slots) master
+   1 additional replica(s)
+M: 60896f3af092c710666132ff1d1422759e1ae16a 192.168.4.52:6052
+   slots:5461-10922 (5462 slots) master
+   1 additional replica(s)
+S: a58b936fde475ae296cd4d089c9849739a811ab4 192.168.4.56:6056
+   slots: (0 slots) slave
+   replicates 60896f3af092c710666132ff1d1422759e1ae16a
+M: aa6f7149159d094d59ead9f135b6274b6291f083 192.168.4.55:6055
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+
+
+手动重新分配hash slot
+[root@mysql57 redis-4.0.8]# redis-trib.rb reshard 192.168.4.57:6057
+>>> Performing Cluster Check (using node 192.168.4.57:6057)
+M: 559e1c7692d35a0bf0493ab826bdccbf1a566c5f 192.168.4.57:6057
+   slots: (0 slots) master
+   0 additional replica(s)
+S: 315fbf254fd243feb6948fae5f211c5691e880cf 192.168.4.54:6054
+   slots: (0 slots) slave
+   replicates 09859fa22ee355fd353e238ad40a104782064755
+S: fb6a6db4f64287cdd7d8565213c33c632352f460 192.168.4.51:6051
+   slots: (0 slots) slave
+   replicates aa6f7149159d094d59ead9f135b6274b6291f083
+M: 09859fa22ee355fd353e238ad40a104782064755 192.168.4.53:6053
+   slots:10923-16383 (5461 slots) master
+   1 additional replica(s)
+M: 60896f3af092c710666132ff1d1422759e1ae16a 192.168.4.52:6052
+   slots:5461-10922 (5462 slots) master
+   1 additional replica(s)
+S: a58b936fde475ae296cd4d089c9849739a811ab4 192.168.4.56:6056
+   slots: (0 slots) slave
+   replicates 60896f3af092c710666132ff1d1422759e1ae16a
+M: aa6f7149159d094d59ead9f135b6274b6291f083 192.168.4.55:6055
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+How many slots do you want to move (from 1 to 16384)? 4096    (因为一共由4个主节点 向平均分配 16384/4=4096)
+What is the receiving node ID? 559e1c7692d35a0bf0493ab826bdccbf1a566c5f (库的ID号)
+Please enter all the source node IDs.
+  Type 'all' to use all the nodes as source nodes for the hash slots.
+  Type 'done' once you entered all the source nodes IDs.
+Source node #1:all                    (全要 分配到的hash slot值)
+
+
+删除节点主机：
+1.删除master角色的节点主机：
+1.1移除占用的hash槽(slot)
+redis-trib.rb reshard 192.168.4.51:6051
+4096 移除hash槽的个数
+主机id 目标主机id
+主机id 给的主机id
+done
+yes
+
+
+
+1.2删除主机
+redis-trib.rb del-node 192.168.4.51:6051 ID号
+
+2.删除slave角色的节点主机：
+redis-trib.rb del-node 192.168.4.51:6051 ID号。
+
+
+
+
+添加slave角色主机
+1.主机运行redis服务 并设置集群配置 
+2.添加slave角色主机
+redis-trib.rb add-node --slave --master-id id值 192.168.4.51:6051
+不指定id值的时候，添加进入master最少的主机中
+
+
+
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+redis-trib.rb 脚本选型：
+
+add-node  添加主机(主机的角色是master)
+check  检查集群
+reshard   手动分配hash slot值
+del-node  删除主机
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

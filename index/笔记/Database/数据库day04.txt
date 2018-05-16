@@ -9,10 +9,11 @@
 五、用户授权与权限撤销
 六、数据备份与恢复
 七、mysql主从同步
-八、数据读写分离
-九、部署mysql集群
-十、mysql调优
+八、数据读写分离(maxscale软件+一主一从结构)
+九、部署mysql高可用集群(MHA软件+mysql主从同步)
+十、mysql调优 mysql多实例
 十一、mysql试图 和 存储过程
+十二、数据分片()
 
 非关系型数据库服务的使用 redis和mongodb
 
