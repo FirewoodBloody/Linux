@@ -1,0 +1,454 @@
+
+
+
+张志刚
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+集群和存储：
+存储
+集群
+分布式存储：ceph
+
+知识掌握的层次：操作 原理 troubleshooting排错
+软盘：1.44M   内存：64M    硬盘：10G     TB -> PB 
+人肉运维
+自动化运维：ansible python
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+一、存储技术与应用
+1介绍：存储是根据不同的应用环境通过采取合理、安全、有效的方式将数据保存到某些介质上并能保证有效的访问
+       一方面它是数据临时或长期驻留的物理媒介；另一方面它是保证数据完整安全存放的方式或行为
+       存储就是吧这两个方面结合起来，向客户提供存储服务          
+       一存储多使用
+2.分类：SCSI小型计算机系统接口
+       DAS直连式存储    
+       NAS网络技术存储     nfs或samba共享
+       SAN存储区域网络         iscsi
+       FS光纤存储
+3.常见的存储技术：SCSI技术   Small Computer System Interface的简称    
+                                作为输入/输出接口    
+                                主要用于硬盘、光盘、磁带机等设备
+               DAS技术   Direct-Attached Storage的简称    
+                              将存储设备通过SCSI接口或光纤通道直接连接到计算机上
+                              占用服务器操作系统资源,如CPU、IO等
+                              数据量越大,性能越差
+               NAS技术   Network-Attached Storage的简称
+                              一种专用数据存储服务器,以数据为中心,将存储设备与服务器彻底分离,集中管理数据,从而释放带宽、提高性能、降低总拥有成本、保护投资
+                              用户通过TCP/IP协议访问数据   –采用标准的NFS/HTTTP/CIFS等
+               SAN技术   Storage Area Network的简称
+                               通过光纤交换机、光纤路由器、光纤集线器等设备将磁盘阵列、磁带等存储设备与相关服务器连接起来,形成高速专网网络
+                               组成部分：路由器、光纤交换机   接口:如SCSI、FC   通信协议:如IP、SCSI
+
+Fibre Channel
+–  一种适合于千兆数据传输的、成熟而安全解决方案
+–  与传统的SCSI相比,FC提供更高的数据传输速率、更
+远的传输距离、更多的设备连接支持以及更稳定的性
+能、更简易的安装
+
+FC主要组件
+–  光纤
+–  HBA(主机总线适配置器)
+–  FC交换机
+
+iSCSI技术   
+•  Internet SCSI
+•  IETF制定的标准,将SCSI数据块映射为以太网数据包
+•  是一种基于IP Storage理论的新型存储技术
+•  将存储行业广泛应用的SCSI接口技术与IP网络相结合
+•  可以在IP网络上构建SAN
+•  最初由Cisco和IBM开发
+•  优势
+–  基于IP协议技术的标准
+–  允许网络在TCP/IP协议上传输SCSI命令
+–  相对FC SAN,iSCSI实现的IP SAN投资更低
+–  解决了传输效率、存储容量、兼容性、开放性、安全性等方面的问题
+–  没有距离限制
+•  客户端
+–  iSCSI Initiator:软件实现,成本低、性能较低
+–  iSCSI HBA:硬件实现,性能好,成本较高
+•  存储设备端
+–  iSCSI Target
+•  以太网交换机
+
+
+二、iscsi技术应用
+1.基础知识：
+iSCSI操作流程
+•  Target端
+–  选择target名称
+–  安装iSCSI target
+–  准备用于target的存储
+–  配置target
+–  启用服务
+•  Initiator端
+–  安装initiator
+–  配置initiator并启动服务
+
+2.iSCSI(IQN)命名规范
+•  建议采用IQN(iSCSI限定名称)
+•  全称必须全局唯一
+•  IQN格式:
+iqn.<date_code>时间.<reversed_domain>域名反写.<string>[:<substring>]
+•  命名示例:
+• iqn.2013-01.com.tarena.tech:sata.rack2.disk1
+
+3.部署icsci
+  准备三台虚拟机 clone-auto7
+  vh05.tedu.cn   192.168.4.5/24
+  vh06.tedu.cn   192.168.4.6/24
+  vh07.tedu.cn   192.168.4.7/24
+  初始化：主机名 ip(nmtui) yum  ssh免密码登陆
+  分区：[root@cluster5 ~]# parted /dev/vdb
+         (parted) mklabel gpt
+         (parted) mkpart primary 1M 20%
+      [root@cluster5 ~]# lsblk
+3.1安装target软件
+•  查询yum仓库
+[root@svr1	~]#	yum	list	|	grep	target	
+•  安装
+[root@svr1	~]#	yum	-y	install	targetcli	
+•  查看iSCSI target信息
+[root@svr1	~]#	yum	info	targetcli	
+
+3.2配置iSCSI Target
+•  定义后端存储
+[root@svr1	~]#	targetcli	
+/>	ls	
+/>	backstores/block	create	iscsidisk   /dev/vdb1	
+•  创建iqn对象
+/>	/iscsi	create	iqn.2018-01.cn.tedu.nsd1801	
+•  授权客户机访问
+/>	iscsi/iqn.2018-01.cn.tedu.nsd1801/tpg1/acls	create	iqn.2018-01.cn.tedu.nsd1801.cluster6	
+/>	iscsi/iqn.2018-01.cn.tedu.nsd1801/tpg1/acls	create	iqn.2018-01.cn.tedu.nsd1801.cluster7
+•  绑定存储
+/>	iscsi/iqn.2018-01.cn.tedu.nsd1801/tpg1/luns	create	/backstores/block/iscsidis		
+•  绑定监听地址
+/>	iscsi/iqn.2018-01.cn.tedu.nsd1801/tpg1/portals/	create	0.0.0.0	
+•  保存配置
+/>	saveconfig		
+/>	exit	
+启动服务  systemctl restart target   systemctl enable target
+
+
+配置cluster6和cluster7客户端，访问cluster5
+[root@cluster6 ~]#yum -y install iscsi-initiator-utils
+[root@cluster6 ~]#vim /etc/iscsi/initiatorname.iscsi
+[root@cluster6 ~]#iscsiadm --mode discoverydb --type sendtargets --portal 192.168.4.5 --discover
+[root@cluster6 ~]#lsblk
+[root@cluster6 ~]#systemctl restart iscsi
+[root@cluster6 ~]#systemctl enable iscsi iscsid
+[root@cluster6 ~]#lsblk
+[root@cluster6 ~]#parted /dev/sda
+         (parted) mklabel gpt
+         (parted) mkpart primary 1M 20%
+         (parted) quit
+[root@cluster6 ~]#lsblk
+[root@cluster6 ~]#mkfs.ext4 /dev/sda1
+
+
+在cluster6上安装mariadb
+[root@cluster6 ~]# yum -y install mariadb-server
+[root@cluster6 ~]# mount /dev/sda1 /var/lib/mysql
+[root@cluster6 ~]# chown mysql:mysql /var/lib/mysql
+[root@cluster6 ~]# systemctl start mariadb
+[root@cluster6 ~]# mysql
+MariaDB [(none)]> create database nsd1801 default charset utf8;
+MariaDB [(none)]> use nsd1801
+MariaDB [nsd1801]> create table t1(name varchar(50));
+MariaDB [nsd1801]> insert into t1 values("柴雪薪");
+MariaDB [nsd1801]> select * from t1;
+MariaDB [nsd1801]> exit
+
+在cluster7上使用cluster6的创建的数据库，继续提供服务    和cluster6的配置一样
+不要尝试多节点同时挂在共享存储，因为xfs/ext文件系统都是单一节点文件系统，如果多节点同时挂载，会导致分区结构损坏。红帽的GFS才能支持多节点同时挂载。
+
+三、udev配置   动态管理硬件文件的方法
+1.介绍：
+devfs Linux早期采用的静态管理方法
+       /dev目录下有大量静态文件
+        内核版本2.6.13开始被完全取代
+udev  只有连到系统上来的设备才能/dev下创建设备文件
+        与主、次设备编号无关 
+        为设备提供持久、一致的名字
+接入设备事件链：
+内核发现设备并导入设备状态到sysfs
+udev接到事件通知
+udev创建设备节点或是运行指定程序
+udev通知hald守护进程
+HAL探测设备信息
+HAL创建设备对象结构
+HAL通过系统信息总线广播该事件
+用户程序也可以监控该事件
+2.作用
+•  从内核收到添加/移除硬件事件时,udev将会分析:
+–  /sys目录下信息
+–  /etc/udev/rules.d目录中的规则
+•  基于分析结果,udev会:
+–  处理设备命名
+–  决定要创建哪些设备文件或链接
+–  决定如何设置属性
+–  决定触发哪些事件
+
+配置udev
+•  主配置文件/etc/udev/udev.conf
+–  udev_root:创建设备文件位置,默认为/dev
+–  udev_rules:udev规则文件位置,默认为/etc/udev/
+rules.d
+–  udev_log:syslog优先级,缺省为err
+•  文件位置及格式
+–  /etc/udev/rules.d/<rule_name>.rules
+–  例:75-custom.rules
+•  规则格式
+–  <match-key><op><value>[,...]<assignment-
+key><op>value[,...]
+–  BUS=="usb",SYSFS{serial}
+=="20043512321411d34721",NAME="udisk"
+•  操作符
+–  ==:表示匹配
+–  != :表示不匹配
+•  匹配示例
+–  ACTION=="add"
+–  KERNEL=="sd[a-z]1"
+–  BUS=="scsi"
+–  DRIVER!="ide-cdrom"
+–  PROGRAM=="myapp.pl",RESULT=="test"
+•  操作符
+–  =:指定赋予的值
+–  +=:添加新值
+–  :=:指定值,且不允许被替换
+•  示例
+–  NAME="udisk"
+–  SYMLINK+="data1"
+–  OWNER="student"
+–  MODE="0600"
+•  可以简化或缩写规则
+KERNEL=="sda*",SYMLINK+="iscsi%n"
+•  常用替代变量
+–  %k:内核所识别出来的设备名,如sdb1
+–  %n:设备的内核编号,如sda3中的3
+–  %p:设备路径,如/sys/block/sdb/sdb1
+–  %%:%符号本身
+
+
+
+3.应用
+3.1 规则文件命令：数字-自定义名字.rules 数字编号是生效顺序
+3.2 规则只有在硬件设备连接上或是取下的时候才生效
+3.3 规则编写，判断是否满足条件用==或!=  赋值用=
+
+
+设置接入的U盘名字是/dev/udisk
+1、查看U盘信息在/sys/目录中的位置
+udevadm info --query=path --name=/dev/sdb1 
+2、查看U盘信息
+udevadm info --query=all --attribute-walk --path=/devices/pci0000:00/0000:00:14.0/usb3/3-5/3-5:1.0/host4/target4:0:0/4:0:0:0/block/sdb/sdb1
+3.创建规则
+[root@cluster5 ~]# cd /etc/udev/rules.d/
+[root@cluster5 ~]# vim 90-udisk.rules
+ACTION=="add", KERNEL=="sd[a-z]*", SUBSYSTEM=="usb",  SYMLINK+="udisk%n"
+释义：如果系统接入硬件，内核识别出来的名字是sd[a-z]*，并且是usb的总线，那么就给它加上一个连接叫udisk1/2/3
+4.将U盘取下，再插上，查看新的名称
+ls /dev/udsik*
+
+*#06#  查看手机的编号
+Manufacture制造商 / Serial / Product系列型号
+
+
+四、NFS网络文件系统
+
+Windows下将fat32分区，如g盘，改为ntfs：   convert g: /fs:ntfs
+
+网络文件系统：
+CIFS：Common Internet FileSystem (samba)
+NFS：Network FileSystem
+
+NFS:
+1.NFS本身只提供了共享功能，底层数据传输需要使用RPC服务(rpcbind)
+2.只读共享
+2.1 cluster5作为服务器
+yum -y install nfs-utils
+mkdir -p /nfsroot/nfsro
+cp /etc/hosts /nfsroot/nfsro
+2.2写配置文件
+vim /etc/exports
+/nfsroot/nfsro    *(ro)       注意：*和()中间不能有空格
+:wq
+2.3启动服务并验证
+systemctl restart rpcbind
+systemctl restart nfs
+showmount -e 192.168.4.5
+2.4在cluster7上访问cluster5的nfs共享
+yum -y install nfs-utils
+mkdir /mnt/roshare
+showmont -e 192.168.4.5
+mount 192.168.4.5:/nfsroot/nfsro /mnt/roshare
+ls /mnt/roshare
+
+3.读写共享
+注意：不管是用的是nfs还是samba还是ftp，只要是读写，都需要配置本地权限(777)和配置文件内的权限(rw)
+3.1服务端配置
+mkdir -m 777 /nfsroot/nfsrw
+vim /etc/exports
+/nfsroot/nfsrw    192.168.4.*(rw,sync)       sync表示客户机服务器同步读写
+:wq
+exportfs -rv      重新输出共享目录的配置，不用重启服务了
+3.2客户端配置
+mkdir /mnt/rwshare
+mount 192.168.4.5:/nfsroot/nfsrw  /mnt/rwshare
+echo 'hello world' > /mnt/rwshare/hello.txt
+3.3客户端写入的文件属主属组是nfsnobody，
+ll /mnt/rwshare/hello.txt
+让文件属主属组是root
+vim /etc/exports
+/nfsroot/nfsrw   192.168.4.*(rw,sync,no_root_squash)
+:wq
+exportfs -rv
+
+
+
+五、Multipath多路径
+1.介绍：
+•  当服务器到某一存储设备有多条路径时,每条路径都
+会识别为一个单独的设备
+•  多路径允许您将服务器节点和储存阵列间的多个I/O
+路径配置为一个单一设备
+•  这些 I/O 路径是可包含独立电缆、交换器和控制器的
+实体 SAN 链接
+•  多路径集合了 I/O 路径,并生成由这些集合路径组成
+的新设备
+2.作用：
+•  冗余
+–  主备模式,高可用
+•  改进的性能
+–  主主模式,负载均衡
+多路径配置：
+1.为cluster5和cluster6在配置一个网卡 eht1
+2.在cluster6上，通过192.168.2.5再发现一次设备
+iscsiadm --mode discoverydb --type sendtargets --portal 192.168.2.5 --discover
+systemctl restart iscsi
+systemctl enable iscsi iscsid
+3.在cluster6上安装多路径软件
+yum -y install	device-mapper-mulMpath	
+4.生成配置文件，不用系统自动生成
+mpathconf  --user_friendly_names   n
+5.查看共享存储的wwid
+/lib/udev/scsi_id	--whitelisted	--device=/dev/sdb	
+3600140528c1c5a7d90d4e608d703b164
+/lib/udev/scsi_id	--whitelisted	--device=/dev/sdc
+3600140528c1c5a7d90d4e608d703b164
+因为两个设备虽然名称不一样,但是实际上是一个设备,所以他们的WWID是相同的
+6.编写配置文件
+vim /etc/multipath.conf	
+defaults{	
+       user_friendly_names  no	
+       find_multipaths yes
+       getuid_callout      "/lib/udev/scsi_id    --whitelisted    --device=/dev/%n"	
+}	
+......
+multipaths{	
+      multipath{	
+               wwid   "1IET  00010001"	
+               alias   mpatha	
+    }	
+}	
+7.启动服务并验证
+systemctl start multipathd
+ls /dev/mapper/mpatha*
+mount /dev/mapper/mpatha1 /var/lib/mysql/
+multipath -rr
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
