@@ -1,0 +1,318 @@
+
+
+存储：
+NAS：直连式存储
+DAS：网络技术(附加)存储
+SAN：存储区域网络  (文件夹系列：samba、nfs等  硬盘：iscsi等)
+
+硬件设备也是文件  udev可以给硬件设备起名子
+
+集群：
+1.介绍：
+•  一组通过高速网络互联的计算组,并以单一系统的模式加以管理
+•  将很多服务器集中起来一起,提供同一种服务,在客户端看来就象是只有一个服务器
+•  可以在付出较低成本的情况下获得在性能、可靠性、灵活性方面的相对较高的收益
+•  任务调度是集群系统中的核心技术
+2.作用：
+•  提高性能
+–  如计算密集型应用,如:天气预报、核试验模拟
+•  降低成本
+–  相对百万美元级的超级计算机,价格便宜
+•  提高可扩展性
+–  只要增加集群节点即可
+•  增强可靠性
+–  多个节点完成相同功能,避免单点失败
+3.分类
+•  高性能计算集群HPC
+–  通过以集群开发的并行应用程序,解决复杂的科学问题
+•  负载均衡(LB)集群
+–  客户端负载在计算机集群中尽可能平均分摊
+•  高可用(HA)集群
+–  避免单点故障,当一个系统发生故障时,可以快速迁移    类似网络中的 HSRP 热备份路由协议  一主一备   还有一种虚拟的
+
+
+负载均衡集群调度器：nginx/lvs/haproxy/F5
+
+LVS概述
+
+LVS项目介绍
+•  Linux 虚拟服务器(LVS)是章文嵩在国防科技大学就读博士期间创建的
+•  LVS可以实现高可用的、可伸缩的Web、Mail、Cache和Media等网络服务
+•  最终目标是利用Linux操作系统和LVS集群软件实现一个高可用、高性能、低成本的服务器应用集群
+
+LVS集群组成
+•  前端:负载均衡层
+–  由一台或多台负载调度器构成
+•  中间:服务器群组层
+–  由一组实际运行应用服务的服务器组成
+•  底端:数据共享存储层
+–  提供共享存储空间的存储区域
+
+LVS术语
+•  Director Server:调度服务器
+–  将负载分发到Real Server的服务器
+•  Real Server:真实服务器
+–  真正提供应用服务的服务器
+•  VIP:虚拟IP地址
+–  公布给用户访问的虚拟IP地址
+•  RIP:真实IP地址
+–  集群节点上使用的IP地址
+•  DIP:调度器连接节点服务器的IP地址
+
+LVS工作模式
+•  VS/NAT
+–  通过网络地址转换实现的虚拟服务器
+–  大并发访问时,调度器的性能成为瓶颈
+•  VS/DR
+–  直接使用路由技术实现虚拟服务器
+–  节点服务器需要配置VIP,注意MAC地址广播
+•  VS/TUN
+–  通过隧道方式实现虚拟服务器
+
+负载均衡调度算法
+•  LVS目前实现了10种调度算法
+•  常用调度算法有4种
+–  轮询(Round Robin)
+–  加权轮询(Weighted Round Robin)
+–  最少连接(Least Connections)
+–  加权最少连接( Weighted Least Connections )
+—  加权最少连接
+–—— 根据Real Server权重值,选择连接数最少的服务器
+—  源地址散列(Source Hashing)
+–——  根据请求的目标IP地址,作为散列键(Hash Key)从静态分配的散列表找出对应的服务器
+•  其他调度算法
+–  带复制的基于局部性最少链接
+–  目标地址散列(Destination Hashing)
+–  最短的期望的延迟
+–  最少队列调度
+
+
+安装软件
+安装前准备
+•  LVS的IP负载均衡技术是通过IPVS模块实现的
+•  IPVS模块已成为Linux组成部分
+[root@svr1	~]#	grep	-i	'ipvs'	/boot/config-3.10.0-327.el7.x86_64	
+#	IPVS	transport	protocol	load	balancing	support	
+#	IPVS	scheduler	
+#	IPVS	SH	scheduler	
+#	IPVS	applicaLon	helper	
+
+安装ipvsadm
+•  使用rpm命令安装ipvsadm
+[root@svr1	Packages]#	rpm	-ihv	ipvsadm-1.27-7.el7.x86_64.rpm		
+[root@svr1	Packages]#	ipvsadm	-v	
+ipvsadm	v1.27	2008/5/15	(compiled	with	popt	and	IPVS	v1.2.1)	
+
+ipvsadm用法
+•  创建虚拟服务器
+–  -A 添加虚拟服务器
+–  -t 设置群集地址(VIP,Virtual IP)
+–  -s 指定负载调度算法
+—  -D 删除虚拟服务器
+—  -E 修改虚拟服务器的调度算法
+[root@svr1	~]#	ipvsadm  -A  -t  172.16.16.172:80  -s  rr	
+•  添加、删除服务器节点
+–  -a 添加真实服务器
+–  -d 删除真实服务器
+–  -r 指定真实服务器(Real Server)的地址
+–  -m 使用NAT模式
+—  -g、-i分别对应DR、TUN模式
+–  -w 为节点服务器设置权重,默认为1
+[root@svr1	~]# ipvsadm -a -t 201.1.1.8:80 -r 192.168.4.6 -m 	
+[root@svr1	~]# ipvsadm -d -t 201.1.1.8:80 -r 192.168.4.6 
+•  查看IPVS
+[root@svr1	~]# ipvsadm -Ln	
+
+
+
+在web服务器上把网关指向192.168.4.8
+在cluster8上多配置一张网卡，配置一个额外的地址(在eth2上配置201.1.1.8/24)
+[root@cluster8 ~]# nmcli connection add autoconnect yes type ethernet con-name eth2 ifname eth2
+连接“eth2”(2df2ec2d-3dd5-45bc-b898-9ec126a02e5e) 已成功添加。
+[root@cluster8 ~]# nmcli connection modify eth2 ipv4.method manual ipv4.addresses 201.1.1.8/24 connection.autoconnect yes
+[root@cluster8 ~]# nmcli connection up eth2
+连接已成功激活（D-Bus 活动路径：/org/freedesktop/NetworkManager/ActiveConnection/6）
+打开cluster8上的路由功能
+[root@cluster8 ~]# sysctl -a | grep -i ip_forward
+net.ipv4.ip_forward = 1
+不是1 可以修改配置文件
+[root@cluster8 ~]# vim /etc/sysctl.conf
+...
+net.ipv4.ip_forward=1
+...
+:wq
+[root@cluster8 ~]# sysctl -p
+[root@cluster8 ~]# sysctl -a   查看所有内核参数
+lvs集群配置
+[root@cluster8 ~]# ipvsadm -A -t 201.1.1.8:80 -s rr
+[root@cluster8 ~]# ipvsadm -a -t 201.1.1.8:80 -r 192.168.4.6 -m -w 2
+[root@cluster8 ~]# ipvsadm -a -t 201.1.1.8:80 -r 192.168.4.7 -m 
+[root@cluster8 ~]# firefox http://201.1.1.8/bbs
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+脚本监控
+vim /etc/ipvsadm.sh
+!#/bin/bash
+RIP1=192.168.4.6
+RIP1=192.168.4.7
+VIP=201.1.1.8:80
+
+while :
+do
+for IP in $RIP1 $RIP2
+do
+curl -I http://${IP} &> /dev/null
+web_state=$?
+ipvsadm -Ln | grep ${IP} &> /dev/null
+ip_in_lvs=$?
+if [ $web_state -ne 0 -a $ip_in_lvs -eq 0 ]; then
+ipvsadm -d -t $VIP -r $IP
+elif [ $web_state -eq 0 -a $ip_in_lvs -ne 0 ]; then
+ipvsadm -a -t $VIP -r $IP -m
+fi
+done
+sleep 3
+done
+
+watch -n 1 ipvsadm -Ln
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+操作流程
+•  Real Server:
+–  配置WEB服务器
+•  Director Server:
+–  在上安装并启用ipvsadm
+–  创建虚拟服务器
+–  向虚拟服务器中加入节点
+•  Client:
+–  连接虚拟服务器测试
+
+
+部署LVS调度器
+•  打开ip_forward
+[root@svr1	~]# vim /etc/sysctl.conf	
+net.ipv4.ip_forward = 1	
+[root@svr1	~]# sysctl -p	
+•  启动ipvsadm
+[root@svr1	~]# systemctl start ipvsadm	
+[root@svr1	~]# systemctl enable ipvsadm	
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+lvs dr模式
+一、清理LVS-NAT的配置
+1、删除lvs规则
+[root@cluster8 ~]# ipvsadm -D -t 201.1.1.8:80
+2、删除eth2的地址
+[root@cluster8 ~]# nmcli connection delete eth2
+二、配置VIP地址
+cd /etc/sysconfig/network-scripts/
+cp ifcfg-eth0 ifcfg-eth0:0
+vim ifcfg-eth0:0
+TYPE=Ethernet
+BOOTPROTO=none
+NAME=eth0:0
+DEVICE=eth0:0
+ONBOOT=yes
+IPADDR=192.168.4.100
+PREFIX=24
+:wq
+[root@cluster8 network-scripts]# ifup ifcfg-eth0:0
+2.把VIP配置在real server的lo
+cd /etc/sysconfig/network-scripts/
+cp ifcfg-lo ifcfg-lo:0
+vim ifcfg-lo:0
+DEVICE=lo:0
+IPADDR=192.168.4.100
+NETMASK=255.255.255.255
+NETWORK=192.168.4.100
+# If you're having problems with gated making 127.0.0.0/8 a martian,
+# you can change this to something else (255.255.255.255, for example)
+BROADCAST=192.168.4.100
+ONBOOT=yes
+NAME=lo:0
+:wq
+ifup lo:0
+
+三、在WEB服务器上修改内核参数
+因为三台主机都有VIP192.168.4.100.当请求发送过来是，应该是调度器接受请求，real server不要接受。为了实现这个功能，西要修改real server的内核参数
+sysctl -a | grep arp_ig
+echo "net.ipv4.conf.default.arp_ignore = 1" >> /etc/sysctl.conf
+echo "net.ipv4.conf.lo.arp_ignore = 1" >> /etc/sysctl.conf
+echo "net.ipv4.conf.all.arp_announce = 2" >> /etc/sysctl.conf
+echo "net.ipv4.conf.lo.arp_announce = 2" >> /etc/sysctl.conf
+[root@cluster7 ~]# sysctl -p   应用内核参数
+
+四、配置LVS DR规则
+ipvsadm -A -t 192.168.4.100:80 -s rr
+ipvsadm -a -t 192.168.4.100:80 -r 192.168.4.6 -m
+ipvsadm -a -t 192.168.4.100:80 -r 192.168.4.7 -m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
