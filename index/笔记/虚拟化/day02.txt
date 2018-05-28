@@ -1,0 +1,277 @@
+
+
+openstack
+
+概述：
+云计算：
+基于互联网的相关服务的增加，使用和交付模式
+这种模式提供可用的，便捷的，按需的网络访问进入可配置的计算资源共享池(网络，服务器，存储，应用软件，服务)
+能被快速徒工，投入少量的管理工作，
+
+IaaS  基础设施即服务
+提供给消费者的服务是对所有计算基础设施的利用，包括CPU，内存，存储，网络和其他基本的计算资源，用户能够部署和运行人一软件，包括操作系统
+共有云  私有云  混合云
+
+PaaS  平台即服务
+云计算时代相应的服务器平台或者开发环境作为服务进行提供就成为了PaaS
+PaaS运营商所需提供的服务，不仅仅是单纯的基础平台，而且包括针对该平台的技术支持服务，甚至针对该平台而进行的应用系统开发，优化等服务
+PaaS平台就是指云环境中的应用基础设施服务，也可以说是中间件及服务
+
+SaaS  软件即服务
+通过Internet提供软件的模式，广商将应用软件统一部署在自己的服务器上，客户可以通过自己是西需求 ，通过互联网向厂商订购锁需的应用软件服务
+用户不用在购买软件，而改用向提供商租用基于Web的软件，来管理企业经营活动，且无需对软件进行维护，服务提供互联网应用的同时，也提供软件的离线操作和本机数据存储，让用户随时随地都可以使用其定购的软件和服务
+
+
+Openstack简介：
+可持续性不是很好，更新好兼容性不是很好
+
+Horizon
+用于管理Openstack各种服务的，基于Web的管理接口
+通过图像实现创建用户、管理服务
+
+Keystone
+提供认证和授权的集中身份管理服务和集中的目录服务
+支持多种身份认证模式，如果密码认证、令牌认证以及AWS(亚马逊Web服务)登陆
+为用户和其他服务提供了SSO认证服务
+
+Neutron
+软件定义网络服务
+用于创建网络，子网，路由器，管理浮动IP地址
+可以实现虚拟交换机，虚拟路由器
+可用于在项目中创建VPN
+
+Cinder
+
+Nova
+
+Glance
+
+
+配置yum仓库
+RHEL7光盘信息必须提供
+RHEL7OSP光盘拥有众多目录，每个目录都是一个仓库，因此，需要把这些目录都配置为yum源
+RHEL7-extras扩展包光盘在安装的时候也是需要的
+
+
+
+
+配置openstack环境
+1.安装一台CentOS-1708的虚拟机，最小安装
+2.配置yum并导入CentOS-1708的数字签名公钥
+3.禁用selinux
+4.卸载NetworkManager服务
+5.卸载firewalld
+
+以改机器为模板，创建3台虚拟机
+openstack  8G内存    192.168.4.5
+nova       6G内存    192.168.4.4
+ntp        1G内存    192.168.4.3
+
+系统环境准备
+openstack安装时候需要使用外部dns来解析域名，并且还需要外部事件服务器来保证所有节点的时间保持一致
+我们需要创建一个dns服务器，并且为我们的主机提供域名解析
+将openstack.tedu.cn 域名对应的IP解析到我们的安装openstac的服务器
+
+dns服务器不能与openstack安装在统一台主机上
+
+
+dns服务器：
+[root@dnsntp ~]# yum -y install bind bind-chroot
+[root@dnsntp ~]# vim /etc/named.conf
+....
+13 listen-on port 53 { 192.168.4.3; };
+14 //listen-on-v6 port 53 { ::1; };
+19 allow-query     { any; };
+31 recursion yes;
+32 forwarders { 172.233.0.227; }; 开启转发 写真机网卡上的DNS地址  添加的转发服务器
+34 dnssec-enable no;
+35 dnssec-validation no;
+....
+
+[root@dnsntp ~]# systemctl restart named
+[root@dnsntp ~]# ping (forwarders的ip地址)  能ping通就说明dns可以使用
+
+
+ntp服务器：
+[root@dnsntp ~]# vim /etc/chrony.conf
+...
+server time.window.com iburst
+bindacqaddress 0.0.0.0
+allow 0/0
+...
+
+[root@dnsntp ~]# systemctl restart chronyd
+[root@dnsntp ~]# ss -aunplt | grep 123
+udp  UNCONN   0  0  *:123  *:*                   users:(("chronyd",pid=1399,fd=3))
+[root@dnsntp ~]# chronyc sources -v 
+210 Number of sources = 1
+
+  .-- Source mode  '^' = server, '=' = peer, '#' = local clock.
+ / .- Source state '*' = current synced, '+' = combined , '-' = not combined,
+| /   '?' = unreachable, 'x' = time may be in error, '~' = time too variable.
+||                                                 .- xxxx [ yyyy ] +/- zzzz
+||      Reachability register (octal) -.           |  xxxx = adjusted offset,
+||      Log2(Polling interval) --.      |          |  yyyy = measured offset,
+||                                \     |          |  zzzz = estimated error.
+||                                 |    |           \
+MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+===============================================================================
+^? 118.144.89.240                0   6     0     -     +0ns[   +0ns] +/-    0ns
+(？是不可用的chrony地址         *是可以的chrony地址)
+
+
+[root@openstack ~]# vim /etc/hosts
+...
+192.168.4.5 openstack
+...
+:wq
+[root@openstack ~]# vim /etc/resolv.conf 
+nameserver 192.168.4.3
+:wq
+
+++++++++++++++++++++++++++++++++++++++++++++
+mkdir openstack
+mkdir openstack-ext
+++++++++++++++++++++++++++++++++++++++++++++
+
+
+[root@openstack ~]# cd /etc/sysconfig/network-scripts/
+[root@openstack network-scripts]# cp ifcfg-eth0 ifcfg-eth1
+[root@openstack network-scripts]# vim ifcfg-eth1
+...
+NAME=eth1
+DEVICE=eth1
+IPADDR=192.168.2.5
+#GATEWAY="192.168.1.254"
+...
+:wq
+[root@openstack network-scripts]# systemctl restart network
+[root@openstack network-scripts]# ip a s
+
+
+[root@nova ~]# cd /etc/sysconfig/network-scripts/
+[root@nova network-scripts]# cp ifcfg-eth0 ifcfg-eth1
+[root@nova network-scripts]# vim ifcfg-eth1
+...
+NAME=eth1
+DEVICE=eth1
+IPADDR=192.168.2.4
+#GATEWAY="192.168.1.254"
+...
+:wq
+[root@nova network-scripts]# systemctl restart network
+[root@nova network-scripts]# ip a s
+
+nat伪装访问网络：
+
+虚拟机上网：
+vim nat.sh
+for i in mangle security raw filter
+do
+ iptables -t ${i} -F
+ iptables -t ${i} -X    清除所有附加键
+ rmmod iptable_${i}
+done
+sysctl -w net.ipv4.ip_forward=1
+ETH=$(ip route show|awk '{if($1=="default" && $2=="via")print $5}')
+iptables -t nat -A POSTROUTING -s 192.168.0.0/16 -o ${ETH} -j MASQUERADE
+
+
+配置完成以后 安装依赖安装包
+qemu-kvm
+libvirt-client
+libvirt-daemon
+libvirt-daemon-driver-qemu
+iproute
+net-tools
+bridge-utils
+vim-enhanced
+
+
+openstack需要使用块设备，这里要给openstack添加一个块设备
+qemu-img create -f qcow2 disk.img 100G
+virsh -c qemu:///system attach-disk openstack /var/lib/libvirt/images/disk.img sdb --subdriver qcow2 --sourcetype file
+
+在虚拟机里为openstack准备卷
+yum -y install lvm2
+pvcreate /dev/sda
+vgcreate cinder-volumes /dev/sda
+
+可以通过vgs查看
+
+安装packstack
+yum -y install openstack-packstack python-setuptools
+
+创建应答文件
+packstack --gen-answer-file answer.ini
+vim answer.ini
+...
+ 11 CONFIG_DEFAULT_PASSWORD=redhat     设置默认密码
+ 42 CONFIG_SWIFT_INSTALL=n      有没有可使用使用对象存储
+ 75 CONFIG_NTP_SERVERS=192.168.4.3  时间服务器是那台写ip地址
+ 554 CONFIG_CINDER_VOLUMES_CREATE=n  是否创建卷组
+ 840 CONFIG_NEUTRON_ML2_TYPE_DRIVERS=flat,vxlan vxlan本来不支持访问外网，加上flat可以访问外网
+ 876 CONFIG_NEUTRON_ML2_VXLAN_GROUP=239.1.1.5 设置一个主播地址，广播地址
+ 910 CONFIG_NEUTRON_OVS_BRIDGE_MAPPINGS=physnet1:br-ex     设置物理网桥的名称
+ 921 CONFIG_NEUTRON_OVS_BRIDGE_IFACES=br-ex:eth0  设置网桥对应的物理网卡
+ 936 CONFIG_NEUTRON_OVS_TUNNEL_IF=eth1      设置另一张网卡隧道
+ 1179 CONFIG_PROVISION_DEMO=n    设置不测试
+...
+
+安装openstack
+packstack --answer-file=answer.ini
+
+192.168.4.5_controller.pp:                        [ ERROR ]          
+Applying Puppet manifests                         [ ERROR ]
+
+ERROR : Error appeared during Puppet run: 192.168.4.5_controller.pp
+Error: /usr/sbin/ntpdate 192.168.4.3 returned 1 instead of one of [0]
+
+ntp服务器炸了，所以报错
+
+
+dig 和 nsloookup 
+
+dig
+选项：
+@<服务器地址>：指定进行域名解析的域名服务器；
+-b<ip地址>：当主机具有多个IP地址，指定使用本机的哪个IP地址向域名服务器发送域名查询请求；
+-f<文件名称>：指定dig以批处理的方式运行，指定的文件中保存着需要批处理查询的DNS任务信息；
+-P：指定域名服务器所使用端口号；
+-t<类型>：指定要查询的DNS数据类型；
+-x<IP地址>：执行逆向域名查询；
+-4：使用IPv4；
+-6：使用IPv6；
+-h：显示指令帮助信息
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

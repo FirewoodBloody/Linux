@@ -1,0 +1,173 @@
+
+！！！！！！！！=KVM虚拟化=！！！！！！！！
+
+核心技术
+
+
+虚拟化
+VMware     VMware Workstation、vSphere
+Microsoft  VirtualPC、Hyper-V
+RedHat     KVM、RHEV
+Citrix     Xen
+Oracle     Oracle VM VirtualBox
+
+virsh  命令行下管理虚拟机
+
+virsh 控制指令 
+
+virsh nodeinfo 查看节点服务器的信息
+virsh list [all] 查看虚拟机列表
+virsh start|reboot|shutdown 虚拟机名字     开启|重启|关闭虚拟机
+virsh destory  强制关闭虚拟机
+virsh autostart [--disable] 虚拟机名字      将指定的虚拟机设为开机自动运行
+virsh console node1  连接node1虚拟机
+virsh dumpxml 
+virsh edit node1   编辑配置文件
+virsh define XML格式文件    将一个XML格式的文件导入其中  定义一个XML文件
+
+
+
+
+xml配置文件  虚拟机基本信息
+img文件  磁盘文件 
+
+qemu-img create -f 格式  磁盘路径 大小
+qemu-img create -f qcow2 a.img 20G
+qemu-img create -b source.qcow2 -f qcow2 node2.img  (-b 根据什么磁盘)
+qemu-img info 磁盘路径
+qemu-img snapshot -c 快照名 qcow2磁盘
+qemu-img snapshot -l qcow2磁盘
+qemu-img snapshot -a 快照名 qcow2磁盘
+qemu-img snapshot -d 快照名 qcow2磁盘
+
+dd if=/var/sda1 of=./boot.bin bs=512 count=1
+dd if=/var/zero of=f1 bs=100 count=0 seek=100
+
+du -sh boot.bin
+
+             raw        qcow2
+KVM           否            是
+I/O           高            较高
+占用空间         大             小
+压缩            不支持         支持
+后端盘服用      不支持         支持
+快照            不支持         支持
+ 
+
+COW技术原理
+COPY OR WRITE
+
+
+guestmount工具
+guestmount -a 虚拟机磁盘路径 -i /挂载点
+
+brctl show  查看本机有那些网桥
+
+virsh
+setmen                    改变内存的分配
+setmen node1 数字             改变内存的大小
+attach-interface node1 bridge br0 --model virtio   修改虚拟机网桥信息
+domiflist node1  查看node1中的网桥 
+
+dhclient -I eth1 -v  有服务器用改命令可以自动获取ip
+
+
+<disk type='file' device='cdrom'>
+<dirver name='qemu' type='raw'/>
+<dirver dev='hda' bus='ide'/>
+<readonly/>
+</disk>
+
+change-media --source /var/ftp/iso/CentOS7-1708.iso --insert node1 hda
+mount -t iso9660 -o ro /dev/cdrom /mnt/
+cd /mnt/
+ls
+umount /mnt/
+change-media node1 hda --eject
+change-media --source /var/ftp/iso/RHEL7OSP-10.iso --insert node1 hda
+mount -t iso9660 -o ro /dev/cdrom /mnt/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
